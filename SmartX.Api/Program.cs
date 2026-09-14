@@ -1,4 +1,7 @@
+
 using SmartX.Api.Services;
+using static System.Net.Mime.MediaTypeNames;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SmartX.Api
 {
@@ -12,6 +15,7 @@ namespace SmartX.Api
 
             // Azure Table Storage
             builder.Services.AddSingleton<SensorTableService>();
+            builder.Services.AddSingleton<TelemetryService>();
 
             // Azure File Share
             builder.Services.AddSingleton<SensorFileService>();
@@ -27,6 +31,11 @@ namespace SmartX.Api
                     scope.ServiceProvider.GetRequiredService<SensorTableService>();
 
                 await sensorTableService.InitializeAsync();
+
+                var telemetryService =
+                    scope.ServiceProvider.GetRequiredService<TelemetryService>();
+
+                await telemetryService.InitializeAsync();
 
                 var sensorFileService =
                     scope.ServiceProvider.GetRequiredService<SensorFileService>();
