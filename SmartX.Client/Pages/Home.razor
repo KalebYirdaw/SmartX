@@ -1,21 +1,18 @@
 ﻿@page "/"
 
 @using SmartX.Client.Services
+@inject SensorApiService SensorApiService
 @inject TelemetryApiService TelemetryApiService
 
 <PageTitle>SmartX</PageTitle>
 
 <h1>SmartX Telemetry</h1>
 
-<p>Testing the connection between SmartX.Client and SmartX.Api.</p>
+<p>Select a sensor to view its telemetry readings.</p>
 
-<button class="btn btn-primary" @onclick="LoadTelemetry">
-    Load Telemetry
-</button>
-
-@if (loading)
+@if (loadingSensors)
 {
-    <p>Loading telemetry...</p>
+    <p>Loading sensors...</p>
 }
 else if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -23,13 +20,45 @@ else if (!string.IsNullOrEmpty(errorMessage))
         @errorMessage
     </div>
 }
-else if (telemetry.Count == 0)
+else if (sensors.Count == 0)
 {
-    <p>No telemetry readings found.</p>
+    <div class="alert alert-warning">
+        No sensors are currently available.
+    </div>
 }
 else
 {
-    <h2>Telemetry Readings</h2>
+    <div class="mb-3">
+        <label for="sensorSelect" class="form-label">
+            Select Sensor
+        </label>
+
+        <select id="sensorSelect"
+                class="form-select"
+                @bind="selectedSensorMac">
+            @foreach (var sensor in sensors)
+            {
+                <option value="@sensor.MacAddress">
+                    @sensor.MacAddress - @sensor.Location
+                </option>
+            }
+        </select>
+    </div>
+
+    <button class="btn btn-primary"
+            @onclick="LoadTelemetry">
+        Load Telemetry
+    </button>
+}
+
+@if (loadingTelemetry)
+{
+    <p class="mt-3">Loading telemetry...</p>
+}
+
+@if (telemetry.Count > 0)
+{
+    <h2 class="mt-4">Telemetry Readings</h2>
 
     <table class="table">
         <thead>
@@ -56,21 +85,56 @@ else
 }
 
 @code {
+    private List<SensorDto> sensors = new();
     private List<TelemetryDto> telemetry = new();
 
-    private bool loading;
+    private string selectedSensorMac = string.Empty;
+
+    private bool loadingSensors;
+    private bool loadingTelemetry;
+
     private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loadingSensors = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            sensors = await SensorApiService.GetSensorsAsync();
+
+            if (sensors.Count > 0)
+            {
+                selectedSensorMac = sensors[0].MacAddress;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage =
+                $"Unable to load sensors: {ex.Message}";
+        }
+        finally
+        {
+            loadingSensors = false;
+        }
+    }
 
     private async Task LoadTelemetry()
     {
-        loading = true;
+        if (string.IsNullOrWhiteSpace(selectedSensorMac))
+        {
+            return;
+        }
+
+        loadingTelemetry = true;
         errorMessage = string.Empty;
 
         try
         {
             telemetry =
                 await TelemetryApiService.GetTelemetryAsync(
-                    "AA:BB:CC:DD:EE:01");
+                    selectedSensorMac);
         }
         catch (Exception ex)
         {
@@ -79,7 +143,7 @@ else
         }
         finally
         {
-            loading = false;
+            loadingTelemetry = false;
         }
     }
 }

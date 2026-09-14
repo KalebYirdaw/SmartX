@@ -16,5 +16,6 @@ builder.Services.AddScoped(sp => new HttpClient
 
 // Register SmartX API services
 builder.Services.AddScoped<TelemetryApiService>();
+builder.Services.AddScoped<SensorApiService>();
 
 await builder.Build().RunAsync();
