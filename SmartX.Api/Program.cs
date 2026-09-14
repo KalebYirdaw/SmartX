@@ -1,3 +1,4 @@
+
 using SmartX.Api.Services;
 
 namespace SmartX.Api
@@ -30,6 +31,8 @@ namespace SmartX.Api
             builder.Services.AddSingleton<TelemetryBatchProcessor>();
             builder.Services.AddSingleton<TelemetryPacketProcessor>();
             builder.Services.AddSingleton<MockTelemetryGenerator>();
+            builder.Services.AddSingleton<TelemetryAnomalyService>();
+            builder.Services.AddSingleton<SensorHealthService>();
 
             // Recursive deployment validation
             builder.Services.AddSingleton<DeploymentValidationService>();

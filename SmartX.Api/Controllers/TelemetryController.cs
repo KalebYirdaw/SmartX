@@ -10,13 +10,16 @@ namespace SmartX.Api.Controllers
     {
         private readonly TelemetryService _telemetryService;
         private readonly MockTelemetryGenerator _mockTelemetryGenerator;
+        private readonly TelemetryAnomalyService _telemetryAnomalyService;
 
         public TelemetryController(
             TelemetryService telemetryService,
-            MockTelemetryGenerator mockTelemetryGenerator)
+            MockTelemetryGenerator mockTelemetryGenerator,
+            TelemetryAnomalyService telemetryAnomalyService)
         {
             _telemetryService = telemetryService;
             _mockTelemetryGenerator = mockTelemetryGenerator;
+            _telemetryAnomalyService = telemetryAnomalyService;
         }
 
         // POST: api/Telemetry
@@ -124,6 +127,33 @@ namespace SmartX.Api.Controllers
                 readingsGenerated =
                     generatedTelemetry.Count
             });
+        }
+
+        // GET:
+        // api/Telemetry/anomalies/{sensorMacAddress}
+        [HttpGet("anomalies/{sensorMacAddress}")]
+        public async Task<ActionResult<IEnumerable<TelemetryAnomaly>>>
+            GetAnomalies(string sensorMacAddress)
+        {
+            if (string.IsNullOrWhiteSpace(
+                    sensorMacAddress))
+            {
+                return BadRequest(new
+                {
+                    message =
+                        "Sensor MAC address is required."
+                });
+            }
+
+            var telemetry =
+                await _telemetryService.GetTelemetryAsync(
+                    sensorMacAddress);
+
+            var anomalies =
+                _telemetryAnomalyService.DetectAnomalies(
+                    telemetry);
+
+            return Ok(anomalies);
         }
     }
 }

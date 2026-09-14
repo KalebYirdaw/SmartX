@@ -1,4 +1,5 @@
-﻿@page "/"
+﻿
+@page "/"
 
 @using SmartX.Client.Services
 @implements IDisposable
@@ -10,7 +11,7 @@
 
 <h1>SmartX Dashboard</h1>
 
-<p>Select a sensor to view its latest telemetry and history.</p>
+<p>Select a sensor to view its latest telemetry, health status, history, and anomalies.</p>
 
 @if (loadingSensors)
 {
@@ -53,6 +54,51 @@ else
     </button>
 }
 
+@if (sensorHealth != null)
+{
+    <h2 class="mt-4">Sensor Health</h2>
+
+    <div class="card mb-4">
+        <div class="card-body">
+
+            @if (sensorHealth.Status == "Online")
+            {
+                <h3>🟢 Online</h3>
+            }
+            else if (sensorHealth.Status == "Stale")
+            {
+                <h3>🟠 Stale</h3>
+            }
+            else
+            {
+                <h3>🔴 Disconnected</h3>
+            }
+
+            <p class="card-text">
+                <strong>Status:</strong>
+                @sensorHealth.Status
+            </p>
+
+            <p class="card-text">
+                @sensorHealth.Message
+            </p>
+
+            @if (sensorHealth.LastTelemetryTime.HasValue)
+            {
+                <p class="card-text">
+                    <strong>Last telemetry:</strong>
+                    @sensorHealth.LastTelemetryTime.Value.ToLocalTime()
+                </p>
+
+                <p class="card-text">
+                    <strong>Minutes since last telemetry:</strong>
+                    @sensorHealth.MinutesSinceLastTelemetry
+                </p>
+            }
+        </div>
+    </div>
+}
+
 @if (loadingTelemetry)
 {
     <p class="mt-3">Loading telemetry...</p>
@@ -88,9 +134,59 @@ else
     </div>
 }
 
+@if (anomalies.Count > 0)
+{
+    <h2 class="mt-4">⚠️ Anomalies Detected</h2>
+
+    <div class="alert alert-warning">
+        <strong>@anomalies.Count</strong>
+        unusual telemetry reading(s) detected for this sensor.
+    </div>
+
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Metric</th>
+                <th>Value</th>
+                <th>Reason</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @foreach (var anomaly in anomalies)
+            {
+                <tr>
+                    <td>
+                        @anomaly.Timestamp.ToLocalTime()
+                    </td>
+
+                    <td>
+                        @anomaly.Metric
+                    </td>
+
+                    <td>
+                        <strong>@anomaly.Value</strong>
+                    </td>
+
+                    <td>
+                        @anomaly.Reason
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else if (hasLoadedTelemetry)
+{
+    <div class="alert alert-success mt-4">
+        ✓ No telemetry anomalies detected for this sensor.
+    </div>
+}
+
 @if (telemetry.Count > 0)
 {
-    <h2>Telemetry History</h2>
+    <h2 class="mt-4">Telemetry History</h2>
 
     <table class="table">
         <thead>
@@ -125,8 +221,11 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
 @code {
     private List<SensorDto> sensors = new();
     private List<TelemetryDto> telemetry = new();
+    private List<TelemetryAnomalyDto> anomalies = new();
 
     private TelemetryDto? latestReading;
+
+    private SensorHealthDto? sensorHealth;
 
     private string selectedSensorMac = string.Empty;
 
@@ -146,11 +245,13 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
 
         try
         {
-            sensors = await SensorApiService.GetSensorsAsync();
+            sensors =
+                await SensorApiService.GetSensorsAsync();
 
             if (sensors.Count > 0)
             {
-                selectedSensorMac = sensors[0].MacAddress;
+                selectedSensorMac =
+                    sensors[0].MacAddress;
 
                 await LoadTelemetry();
             }
@@ -185,7 +286,16 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
                 await TelemetryApiService.GetTelemetryAsync(
                     selectedSensorMac);
 
-            latestReading = telemetry.FirstOrDefault();
+            latestReading =
+                telemetry.FirstOrDefault();
+
+            anomalies =
+                await TelemetryApiService.GetAnomaliesAsync(
+                    selectedSensorMac);
+
+            sensorHealth =
+                await TelemetryApiService.GetSensorHealthAsync(
+                    selectedSensorMac);
 
             hasLoadedTelemetry = true;
         }
@@ -195,6 +305,8 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
                 $"Unable to load telemetry: {ex.Message}";
 
             latestReading = null;
+            anomalies = new List<TelemetryAnomalyDto>();
+            sensorHealth = null;
         }
         finally
         {
@@ -204,9 +316,12 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
 
     private void StartAutomaticRefresh()
     {
-        refreshCancellation = new CancellationTokenSource();
-        refreshTimer = new PeriodicTimer(
-            TimeSpan.FromSeconds(10));
+        refreshCancellation =
+            new CancellationTokenSource();
+
+        refreshTimer =
+            new PeriodicTimer(
+                TimeSpan.FromSeconds(10));
 
         _ = RefreshTelemetryAsync(
             refreshCancellation.Token);
@@ -225,14 +340,16 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
             while (await refreshTimer.WaitForNextTickAsync(
                 cancellationToken))
             {
-                if (string.IsNullOrWhiteSpace(selectedSensorMac))
+                if (string.IsNullOrWhiteSpace(
+                        selectedSensorMac))
                 {
                     continue;
                 }
 
                 await LoadTelemetry();
 
-                await InvokeAsync(StateHasChanged);
+                await InvokeAsync(
+                    StateHasChanged);
             }
         }
         catch (OperationCanceledException)
@@ -248,3 +365,4 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
         refreshTimer?.Dispose();
     }
 }
+
