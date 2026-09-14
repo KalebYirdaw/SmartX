@@ -1,7 +1,4 @@
-
 using SmartX.Api.Services;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SmartX.Api
 {
@@ -12,6 +9,18 @@ namespace SmartX.Api
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllers();
+
+            // Allow the SmartX.Client Blazor app to call the API
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("SmartXClient", policy =>
+                {
+                    policy
+                        .WithOrigins("http://localhost:5221")
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                });
+            });
 
             // Azure Table Storage
             builder.Services.AddSingleton<SensorTableService>();
@@ -50,6 +59,9 @@ namespace SmartX.Api
 
             // HTTPS temporarily disabled for local HTTP testing.
             // app.UseHttpsRedirection();
+
+            // Enable CORS before authorization and controllers
+            app.UseCors("SmartXClient");
 
             app.UseAuthorization();
 

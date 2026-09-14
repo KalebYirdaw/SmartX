@@ -1,7 +1,85 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+@using SmartX.Client.Services
+@inject TelemetryApiService TelemetryApiService
 
-<h1>Hello, world!</h1>
+<PageTitle>SmartX</PageTitle>
 
-Welcome to your new app.
+<h1>SmartX Telemetry</h1>
+
+<p>Testing the connection between SmartX.Client and SmartX.Api.</p>
+
+<button class="btn btn-primary" @onclick="LoadTelemetry">
+    Load Telemetry
+</button>
+
+@if (loading)
+{
+    <p>Loading telemetry...</p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">
+        @errorMessage
+    </div>
+}
+else if (telemetry.Count == 0)
+{
+    <p>No telemetry readings found.</p>
+}
+else
+{
+    <h2>Telemetry Readings</h2>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Sensor</th>
+                <th>Timestamp</th>
+                <th>Metric</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @foreach (var reading in telemetry)
+            {
+                <tr>
+                    <td>@reading.SensorMacAddress</td>
+                    <td>@reading.Timestamp.ToLocalTime()</td>
+                    <td>@reading.Metric</td>
+                    <td>@reading.Value</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<TelemetryDto> telemetry = new();
+
+    private bool loading;
+    private string errorMessage = string.Empty;
+
+    private async Task LoadTelemetry()
+    {
+        loading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            telemetry =
+                await TelemetryApiService.GetTelemetryAsync(
+                    "AA:BB:CC:DD:EE:01");
+        }
+        catch (Exception ex)
+        {
+            errorMessage =
+                $"Unable to load telemetry: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}
