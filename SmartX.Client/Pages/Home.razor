@@ -1,7 +1,8 @@
-﻿
-@page "/"
+﻿@page "/"
 
 @using SmartX.Client.Services
+@using BlazorExpress.ChartJS
+
 @implements IDisposable
 
 @inject SensorApiService SensorApiService
@@ -11,7 +12,10 @@
 
 <h1>SmartX Dashboard</h1>
 
-<p>Select a sensor to view its latest telemetry, health status, history, and anomalies.</p>
+<p>
+    Select a sensor to view its latest telemetry, health status,
+    history, anomalies, and visual telemetry trends.
+</p>
 
 @if (loadingSensors)
 {
@@ -38,13 +42,16 @@ else
 
         <select id="sensorSelect"
                 class="form-select"
-                @bind="selectedSensorMac">
+                @bind="selectedSensorMac"
+                @bind:after="LoadTelemetry">
+
             @foreach (var sensor in sensors)
             {
                 <option value="@sensor.MacAddress">
                     @sensor.MacAddress - @sensor.Location
                 </option>
             }
+
         </select>
     </div>
 
@@ -95,13 +102,9 @@ else
                     @sensorHealth.MinutesSinceLastTelemetry
                 </p>
             }
+
         </div>
     </div>
-}
-
-@if (loadingTelemetry)
-{
-    <p class="mt-3">Loading telemetry...</p>
 }
 
 @if (latestReading != null)
@@ -110,6 +113,7 @@ else
 
     <div class="card mb-4">
         <div class="card-body">
+
             <h3 class="card-title">
                 @latestReading.Metric
             </h3>
@@ -130,6 +134,7 @@ else
             <p class="card-text text-muted">
                 Automatically refreshing every 10 seconds.
             </p>
+
         </div>
     </div>
 }
@@ -144,6 +149,7 @@ else
     </div>
 
     <table class="table table-bordered">
+
         <thead>
             <tr>
                 <th>Timestamp</th>
@@ -154,9 +160,11 @@ else
         </thead>
 
         <tbody>
+
             @foreach (var anomaly in anomalies)
             {
                 <tr>
+
                     <td>
                         @anomaly.Timestamp.ToLocalTime()
                     </td>
@@ -172,9 +180,12 @@ else
                     <td>
                         @anomaly.Reason
                     </td>
+
                 </tr>
             }
+
         </tbody>
+
     </table>
 }
 else if (hasLoadedTelemetry)
@@ -184,11 +195,80 @@ else if (hasLoadedTelemetry)
     </div>
 }
 
-@if (telemetry.Count > 0)
+@if (filteredTelemetry.Any())
 {
+    <h2 class="mt-4">Telemetry Visualization</h2>
+
+    <div class="card mb-4">
+        <div class="card-body">
+
+            <div class="mb-3">
+
+                <label for="chartMetricSelect" class="form-label">
+                    Chart Metric
+                </label>
+
+                <select id="chartMetricSelect"
+                        class="form-select"
+                        @bind="chartMetric"
+                        @bind:after="UpdateChart">
+
+                    @foreach (var metric in availableMetrics)
+                    {
+                        <option value="@metric">
+                            @metric
+                        </option>
+                    }
+
+                </select>
+
+            </div>
+
+            @if (chartData != null)
+            {
+                <LineChart @ref="lineChart"
+                           Width="800"
+                           Height="400" />
+            }
+            else
+            {
+                <p class="text-muted">
+                    Select a metric to display telemetry data.
+                </p>
+            }
+
+        </div>
+    </div>
+
     <h2 class="mt-4">Telemetry History</h2>
 
+    <div class="mb-3">
+
+        <label for="metricSelect" class="form-label">
+            Filter by Metric
+        </label>
+
+        <select id="metricSelect"
+                class="form-select"
+                @bind="selectedMetric">
+
+            <option value="All">
+                All Metrics
+            </option>
+
+            @foreach (var metric in availableMetrics)
+            {
+                <option value="@metric">
+                    @metric
+                </option>
+            }
+
+        </select>
+
+    </div>
+
     <table class="table">
+
         <thead>
             <tr>
                 <th>Sensor</th>
@@ -199,28 +279,52 @@ else if (hasLoadedTelemetry)
         </thead>
 
         <tbody>
-            @foreach (var reading in telemetry)
+
+            @foreach (var reading in filteredTelemetry)
             {
                 <tr>
-                    <td>@reading.SensorMacAddress</td>
-                    <td>@reading.Timestamp.ToLocalTime()</td>
-                    <td>@reading.Metric</td>
-                    <td>@reading.Value</td>
+
+                    <td>
+                        @reading.SensorMacAddress
+                    </td>
+
+                    <td>
+                        @reading.Timestamp.ToLocalTime()
+                    </td>
+
+                    <td>
+                        @reading.Metric
+                    </td>
+
+                    <td>
+                        @reading.Value
+                    </td>
+
                 </tr>
             }
+
         </tbody>
+
     </table>
 }
 else if (!loadingTelemetry && hasLoadedTelemetry)
 {
     <div class="alert alert-info mt-3">
-        No telemetry readings found for this sensor.
+        No telemetry readings found for the selected metric.
     </div>
 }
 
-@code {
+@if (loadingTelemetry)
+{
+    <p class="mt-3">Loading telemetry...</p>
+}
+
+@code
+{
     private List<SensorDto> sensors = new();
+
     private List<TelemetryDto> telemetry = new();
+
     private List<TelemetryAnomalyDto> anomalies = new();
 
     private TelemetryDto? latestReading;
@@ -229,18 +333,48 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
 
     private string selectedSensorMac = string.Empty;
 
+    private string selectedMetric = "All";
+
+    private string chartMetric = string.Empty;
+
     private bool loadingSensors;
+
     private bool loadingTelemetry;
+
     private bool hasLoadedTelemetry;
 
     private string errorMessage = string.Empty;
 
     private PeriodicTimer? refreshTimer;
+
     private CancellationTokenSource? refreshCancellation;
+
+    private LineChart lineChart = default!;
+
+    private ChartData? chartData;
+
+    private LineChartOptions lineChartOptions = new();
+
+    private bool chartInitialized;
+
+    private IEnumerable<string> availableMetrics =>
+        telemetry
+            .Select(t => t.Metric)
+            .Distinct()
+            .OrderBy(m => m);
+
+    private IEnumerable<TelemetryDto> filteredTelemetry =>
+        selectedMetric == "All"
+            ? telemetry
+            : telemetry.Where(t =>
+                t.Metric.Equals(
+                    selectedMetric,
+                    StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnInitializedAsync()
     {
         loadingSensors = true;
+
         errorMessage = string.Empty;
 
         try
@@ -271,13 +405,16 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
 
     private async Task LoadTelemetry()
     {
-        if (string.IsNullOrWhiteSpace(selectedSensorMac))
+        if (string.IsNullOrWhiteSpace(
+                selectedSensorMac))
         {
             return;
         }
 
         loadingTelemetry = true;
+
         hasLoadedTelemetry = false;
+
         errorMessage = string.Empty;
 
         try
@@ -297,6 +434,26 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
                 await TelemetryApiService.GetSensorHealthAsync(
                     selectedSensorMac);
 
+            if (telemetry.Count > 0)
+            {
+                if (string.IsNullOrWhiteSpace(chartMetric) ||
+                    !availableMetrics.Contains(chartMetric))
+                {
+                    chartMetric =
+                        availableMetrics.First();
+                }
+
+                chartInitialized = false;
+
+                BuildChartData();
+            }
+            else
+            {
+                chartData = null;
+
+                chartInitialized = false;
+            }
+
             hasLoadedTelemetry = true;
         }
         catch (Exception ex)
@@ -305,13 +462,112 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
                 $"Unable to load telemetry: {ex.Message}";
 
             latestReading = null;
-            anomalies = new List<TelemetryAnomalyDto>();
+
+            anomalies =
+                new List<TelemetryAnomalyDto>();
+
             sensorHealth = null;
+
+            chartData = null;
+
+            chartInitialized = false;
         }
         finally
         {
             loadingTelemetry = false;
         }
+    }
+
+    private async Task UpdateChart()
+    {
+        if (string.IsNullOrWhiteSpace(chartMetric) ||
+            !telemetry.Any())
+        {
+            return;
+        }
+
+        chartInitialized = false;
+
+        BuildChartData();
+
+        await InvokeAsync(
+            StateHasChanged);
+    }
+
+    private void BuildChartData()
+    {
+        var chartReadings =
+            telemetry
+                .Where(t =>
+                    t.Metric.Equals(
+                        chartMetric,
+                        StringComparison.OrdinalIgnoreCase))
+                .OrderBy(t => t.Timestamp)
+                .TakeLast(100)
+                .ToList();
+
+        if (chartReadings.Count == 0)
+        {
+            chartData = null;
+            return;
+        }
+
+        chartData = new ChartData
+        {
+            Labels =
+                chartReadings
+                    .Select(t =>
+                        t.Timestamp
+                            .ToLocalTime()
+                            .ToString("HH:mm:ss"))
+                    .ToList(),
+
+            Datasets =
+                new List<IChartDataset>
+                {
+                    new LineChartDataset
+                    {
+                        Label = chartMetric,
+
+                        Data =
+                            chartReadings
+                                .Select(t =>
+                                    (double?)t.Value)
+                                .ToList()
+                    }
+                }
+        };
+
+        lineChartOptions =
+            new LineChartOptions
+            {
+                Responsive = true
+            };
+    }
+
+    protected override async Task OnAfterRenderAsync(
+        bool firstRender)
+    {
+        if (chartData != null &&
+            !chartInitialized)
+        {
+            try
+            {
+                await lineChart.InitializeAsync(
+                    chartData,
+                    lineChartOptions);
+
+                chartInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage =
+                    $"Unable to initialize telemetry chart: {ex.Message}";
+            }
+        }
+
+        await base.OnAfterRenderAsync(
+            firstRender);
     }
 
     private void StartAutomaticRefresh()
@@ -361,8 +617,9 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
     public void Dispose()
     {
         refreshCancellation?.Cancel();
+
         refreshCancellation?.Dispose();
+
         refreshTimer?.Dispose();
     }
 }
-
