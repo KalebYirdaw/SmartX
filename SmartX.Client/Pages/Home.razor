@@ -6,9 +6,9 @@
 
 <PageTitle>SmartX</PageTitle>
 
-<h1>SmartX Telemetry</h1>
+<h1>SmartX Dashboard</h1>
 
-<p>Select a sensor to view its telemetry readings.</p>
+<p>Select a sensor to view its latest telemetry and history.</p>
 
 @if (loadingSensors)
 {
@@ -56,9 +56,35 @@ else
     <p class="mt-3">Loading telemetry...</p>
 }
 
+@if (latestReading != null)
+{
+    <h2 class="mt-4">Latest Reading</h2>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h3 class="card-title">
+                @latestReading.Metric
+            </h3>
+
+            <p class="display-6">
+                @latestReading.Value
+            </p>
+
+            <p class="card-text">
+                Sensor: @latestReading.SensorMacAddress
+            </p>
+
+            <p class="card-text">
+                Time:
+                @latestReading.Timestamp.ToLocalTime()
+            </p>
+        </div>
+    </div>
+}
+
 @if (telemetry.Count > 0)
 {
-    <h2 class="mt-4">Telemetry Readings</h2>
+    <h2>Telemetry History</h2>
 
     <table class="table">
         <thead>
@@ -83,15 +109,24 @@ else
         </tbody>
     </table>
 }
+else if (!loadingTelemetry && hasLoadedTelemetry)
+{
+    <div class="alert alert-info mt-3">
+        No telemetry readings found for this sensor.
+    </div>
+}
 
 @code {
     private List<SensorDto> sensors = new();
     private List<TelemetryDto> telemetry = new();
 
+    private TelemetryDto? latestReading;
+
     private string selectedSensorMac = string.Empty;
 
     private bool loadingSensors;
     private bool loadingTelemetry;
+    private bool hasLoadedTelemetry;
 
     private string errorMessage = string.Empty;
 
@@ -128,6 +163,7 @@ else
         }
 
         loadingTelemetry = true;
+        hasLoadedTelemetry = false;
         errorMessage = string.Empty;
 
         try
@@ -135,11 +171,17 @@ else
             telemetry =
                 await TelemetryApiService.GetTelemetryAsync(
                     selectedSensorMac);
+
+            latestReading = telemetry.FirstOrDefault();
+
+            hasLoadedTelemetry = true;
         }
         catch (Exception ex)
         {
             errorMessage =
                 $"Unable to load telemetry: {ex.Message}";
+
+            latestReading = null;
         }
         finally
         {
