@@ -1,6 +1,8 @@
 ﻿@page "/"
 
 @using SmartX.Client.Services
+@implements IDisposable
+
 @inject SensorApiService SensorApiService
 @inject TelemetryApiService TelemetryApiService
 
@@ -78,6 +80,10 @@ else
                 Time:
                 @latestReading.Timestamp.ToLocalTime()
             </p>
+
+            <p class="card-text text-muted">
+                Automatically refreshing every 10 seconds.
+            </p>
         </div>
     </div>
 }
@@ -130,6 +136,9 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
 
     private string errorMessage = string.Empty;
 
+    private PeriodicTimer? refreshTimer;
+    private CancellationTokenSource? refreshCancellation;
+
     protected override async Task OnInitializedAsync()
     {
         loadingSensors = true;
@@ -142,7 +151,11 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
             if (sensors.Count > 0)
             {
                 selectedSensorMac = sensors[0].MacAddress;
+
+                await LoadTelemetry();
             }
+
+            StartAutomaticRefresh();
         }
         catch (Exception ex)
         {
@@ -187,5 +200,51 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
         {
             loadingTelemetry = false;
         }
+    }
+
+    private void StartAutomaticRefresh()
+    {
+        refreshCancellation = new CancellationTokenSource();
+        refreshTimer = new PeriodicTimer(
+            TimeSpan.FromSeconds(10));
+
+        _ = RefreshTelemetryAsync(
+            refreshCancellation.Token);
+    }
+
+    private async Task RefreshTelemetryAsync(
+        CancellationToken cancellationToken)
+    {
+        if (refreshTimer == null)
+        {
+            return;
+        }
+
+        try
+        {
+            while (await refreshTimer.WaitForNextTickAsync(
+                cancellationToken))
+            {
+                if (string.IsNullOrWhiteSpace(selectedSensorMac))
+                {
+                    continue;
+                }
+
+                await LoadTelemetry();
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the page is disposed.
+        }
+    }
+
+    public void Dispose()
+    {
+        refreshCancellation?.Cancel();
+        refreshCancellation?.Dispose();
+        refreshTimer?.Dispose();
     }
 }
