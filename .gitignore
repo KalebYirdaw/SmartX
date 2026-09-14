@@ -1,0 +1,28 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.rsuser
+*.userosscache
+*.sln.docstates
+*.csproj.user
+
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Azure/Azurite local data
+azurite-data/
+__azurite*
+AzuriteConfig
