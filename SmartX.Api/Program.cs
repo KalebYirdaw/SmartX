@@ -26,6 +26,14 @@ namespace SmartX.Api
             builder.Services.AddSingleton<SensorTableService>();
             builder.Services.AddSingleton<TelemetryService>();
 
+            // Telemetry processing
+            builder.Services.AddSingleton<TelemetryBatchProcessor>();
+            builder.Services.AddSingleton<TelemetryPacketProcessor>();
+            builder.Services.AddSingleton<MockTelemetryGenerator>();
+
+            // Recursive deployment validation
+            builder.Services.AddSingleton<DeploymentValidationService>();
+
             // Azure File Share
             builder.Services.AddSingleton<SensorFileService>();
 

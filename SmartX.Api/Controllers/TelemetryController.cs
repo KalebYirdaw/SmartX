@@ -9,10 +9,14 @@ namespace SmartX.Api.Controllers
     public class TelemetryController : ControllerBase
     {
         private readonly TelemetryService _telemetryService;
+        private readonly MockTelemetryGenerator _mockTelemetryGenerator;
 
-        public TelemetryController(TelemetryService telemetryService)
+        public TelemetryController(
+            TelemetryService telemetryService,
+            MockTelemetryGenerator mockTelemetryGenerator)
         {
             _telemetryService = telemetryService;
+            _mockTelemetryGenerator = mockTelemetryGenerator;
         }
 
         // POST: api/Telemetry
@@ -20,7 +24,8 @@ namespace SmartX.Api.Controllers
         public async Task<ActionResult> AddTelemetry(
             [FromBody] Telemetry telemetry)
         {
-            if (string.IsNullOrWhiteSpace(telemetry.SensorMacAddress))
+            if (string.IsNullOrWhiteSpace(
+                    telemetry.SensorMacAddress))
             {
                 return BadRequest(new
                 {
@@ -28,7 +33,8 @@ namespace SmartX.Api.Controllers
                 });
             }
 
-            if (string.IsNullOrWhiteSpace(telemetry.Metric))
+            if (string.IsNullOrWhiteSpace(
+                    telemetry.Metric))
             {
                 return BadRequest(new
                 {
@@ -41,7 +47,8 @@ namespace SmartX.Api.Controllers
                 telemetry.Timestamp = DateTime.UtcNow;
             }
 
-            await _telemetryService.AddTelemetryAsync(telemetry);
+            await _telemetryService.AddTelemetryAsync(
+                telemetry);
 
             return Ok(new
             {
@@ -52,10 +59,11 @@ namespace SmartX.Api.Controllers
 
         // GET: api/Telemetry/{sensorMacAddress}
         [HttpGet("{sensorMacAddress}")]
-        public async Task<ActionResult<IEnumerable<Telemetry>>> GetTelemetry(
-            string sensorMacAddress)
+        public async Task<ActionResult<IEnumerable<Telemetry>>>
+            GetTelemetry(string sensorMacAddress)
         {
-            if (string.IsNullOrWhiteSpace(sensorMacAddress))
+            if (string.IsNullOrWhiteSpace(
+                    sensorMacAddress))
             {
                 return BadRequest(new
                 {
@@ -68,6 +76,54 @@ namespace SmartX.Api.Controllers
                     sensorMacAddress);
 
             return Ok(telemetry);
+        }
+
+        // POST:
+        // api/Telemetry/seed/{sensorMacAddress}?count=100
+        [HttpPost("seed/{sensorMacAddress}")]
+        public async Task<ActionResult> SeedTelemetry(
+            string sensorMacAddress,
+            [FromQuery] int count = 100)
+        {
+            if (string.IsNullOrWhiteSpace(
+                    sensorMacAddress))
+            {
+                return BadRequest(new
+                {
+                    message = "Sensor MAC address is required."
+                });
+            }
+
+            if (count < 1 || count > 5000)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        "Count must be between 1 and 5000."
+                });
+            }
+
+            var generatedTelemetry =
+                _mockTelemetryGenerator.Generate(
+                    sensorMacAddress,
+                    count);
+
+            foreach (var telemetry in generatedTelemetry)
+            {
+                await _telemetryService.AddTelemetryAsync(
+                    telemetry);
+            }
+
+            return Ok(new
+            {
+                message =
+                    "Mock telemetry generated successfully.",
+
+                sensorMacAddress,
+
+                readingsGenerated =
+                    generatedTelemetry.Count
+            });
         }
     }
 }
