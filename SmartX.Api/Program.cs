@@ -8,33 +8,38 @@ namespace SmartX.Api
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
             builder.Services.AddControllers();
 
+            // Azure Table Storage
             builder.Services.AddSingleton<SensorTableService>();
 
-            // Add OpenAPI support.
+            // Azure File Share
+            builder.Services.AddSingleton<SensorFileService>();
+
             builder.Services.AddOpenApi();
 
             var app = builder.Build();
 
-            // Initialize Azure Table Storage
+            // Initialize Azure Storage
             using (var scope = app.Services.CreateScope())
             {
                 var sensorTableService =
                     scope.ServiceProvider.GetRequiredService<SensorTableService>();
 
                 await sensorTableService.InitializeAsync();
+
+                var sensorFileService =
+                    scope.ServiceProvider.GetRequiredService<SensorFileService>();
+
+                await sensorFileService.InitializeAsync();
             }
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
             }
 
-            // HTTPS redirection is temporarily disabled
-            // so we can test the API over HTTP.
+            // HTTPS temporarily disabled for local HTTP testing.
             // app.UseHttpsRedirection();
 
             app.UseAuthorization();
