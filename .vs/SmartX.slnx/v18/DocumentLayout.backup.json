@@ -1,0 +1,71 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\emeris\\source\\repos\\SmartX\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{AF614F6F-DE0A-4BD6-9DC5-6A7982DECE77}|SmartX.Api\\SmartX.Api.csproj|c:\\users\\emeris\\source\\repos\\smartx\\smartx.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{AF614F6F-DE0A-4BD6-9DC5-6A7982DECE77}|SmartX.Api\\SmartX.Api.csproj|solutionrelative:smartx.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{AF614F6F-DE0A-4BD6-9DC5-6A7982DECE77}|SmartX.Api\\SmartX.Api.csproj|c:\\users\\emeris\\source\\repos\\smartx\\smartx.api\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{AF614F6F-DE0A-4BD6-9DC5-6A7982DECE77}|SmartX.Api\\SmartX.Api.csproj|solutionrelative:smartx.api\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{AF614F6F-DE0A-4BD6-9DC5-6A7982DECE77}|SmartX.Api\\SmartX.Api.csproj|c:\\users\\emeris\\source\\repos\\smartx\\smartx.api\\properties\\launchsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{AF614F6F-DE0A-4BD6-9DC5-6A7982DECE77}|SmartX.Api\\SmartX.Api.csproj|solutionrelative:smartx.api\\properties\\launchsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\emeris\\source\\repos\\SmartX\\SmartX.Api\\Program.cs",
+              "RelativeDocumentMoniker": "SmartX.Api\\Program.cs",
+              "ToolTip": "C:\\Users\\emeris\\source\\repos\\SmartX\\SmartX.Api\\Program.cs",
+              "RelativeToolTip": "SmartX.Api\\Program.cs",
+              "ViewState": "AgIAABMAAAAAAAAAAAAwwCEAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-14T09:28:06.954Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "appsettings.Development.json",
+              "DocumentMoniker": "C:\\Users\\emeris\\source\\repos\\SmartX\\SmartX.Api\\appsettings.Development.json",
+              "RelativeDocumentMoniker": "SmartX.Api\\appsettings.Development.json",
+              "ToolTip": "C:\\Users\\emeris\\source\\repos\\SmartX\\SmartX.Api\\appsettings.Development.json",
+              "RelativeToolTip": "SmartX.Api\\appsettings.Development.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-09-14T09:28:04.452Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "launchSettings.json",
+              "DocumentMoniker": "C:\\Users\\emeris\\source\\repos\\SmartX\\SmartX.Api\\Properties\\launchSettings.json",
+              "RelativeDocumentMoniker": "SmartX.Api\\Properties\\launchSettings.json",
+              "ToolTip": "C:\\Users\\emeris\\source\\repos\\SmartX\\SmartX.Api\\Properties\\launchSettings.json",
+              "RelativeToolTip": "SmartX.Api\\Properties\\launchSettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-09-14T09:28:02.606Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
