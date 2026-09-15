@@ -32,74 +32,116 @@ namespace SmartX.Api.Services
             await _tableClient.CreateIfNotExistsAsync();
         }
 
-        // Gets all sensors from Azure Table Storage.
-        public async Task<List<Sensor>> GetSensorsAsync()
+        // ============================================================
+        // GET ALL SENSORS / FILTER BY CATEGORY
+        // ============================================================
+
+        public async Task<List<Sensor>> GetSensorsAsync(
+            string? category = null)
         {
             var sensors = new List<Sensor>();
 
-            await foreach (var entity in _tableClient.QueryAsync<TableEntity>())
+            // No category supplied:
+            // return all sensors.
+            if (string.IsNullOrWhiteSpace(category))
             {
-                sensors.Add(new Sensor
+                await foreach (
+                    var entity in
+                    _tableClient.QueryAsync<TableEntity>())
                 {
-                    MacAddress = entity.RowKey,
-                    Location = entity.GetString("Location") ?? string.Empty,
-                    Category = entity.GetString("Category") ?? string.Empty
-                });
+                    sensors.Add(
+                        MapSensor(entity));
+                }
+
+                return sensors;
+            }
+
+            // Category supplied:
+            // filter directly in Azure Table Storage.
+            var filter =
+                TableClient.CreateQueryFilter(
+                    $"Category eq {category}");
+
+            await foreach (
+                var entity in
+                _tableClient.QueryAsync<TableEntity>(
+                    filter: filter))
+            {
+                sensors.Add(
+                    MapSensor(entity));
             }
 
             return sensors;
         }
 
-        // Gets one sensor using its MAC address.
-        public async Task<Sensor?> GetSensorAsync(string macAddress)
+        // ============================================================
+        // GET ONE SENSOR
+        // ============================================================
+
+        public async Task<Sensor?> GetSensorAsync(
+            string macAddress)
         {
             try
             {
-                var entity = await _tableClient.GetEntityAsync<TableEntity>(
-                    "Sensor",
-                    macAddress);
+                var entity =
+                    await _tableClient.GetEntityAsync<TableEntity>(
+                        "Sensor",
+                        macAddress);
 
-                return new Sensor
-                {
-                    MacAddress = entity.Value.RowKey,
-                    Location = entity.Value.GetString("Location") ?? string.Empty,
-                    Category = entity.Value.GetString("Category") ?? string.Empty
-                };
+                return MapSensor(
+                    entity.Value);
             }
-            catch (RequestFailedException ex) when (ex.Status == 404)
+            catch (RequestFailedException ex)
+                when (ex.Status == 404)
             {
                 return null;
             }
         }
 
-        // Creates a new sensor in Azure Table Storage.
-        public async Task CreateSensorAsync(Sensor sensor)
-        {
-            var entity = new TableEntity(
-                "Sensor",
-                sensor.MacAddress)
-            {
-                ["Location"] = sensor.Location,
-                ["Category"] = sensor.Category
-            };
+        // ============================================================
+        // CREATE SENSOR
+        // ============================================================
 
-            await _tableClient.AddEntityAsync(entity);
+        public async Task CreateSensorAsync(
+            Sensor sensor)
+        {
+            var entity =
+                new TableEntity(
+                    "Sensor",
+                    sensor.MacAddress)
+                {
+                    ["Location"] =
+                        sensor.Location,
+
+                    ["Category"] =
+                        sensor.Category
+                };
+
+            await _tableClient.AddEntityAsync(
+                entity);
         }
 
-        // Updates an existing sensor.
+        // ============================================================
+        // UPDATE SENSOR
+        // ============================================================
+
         public async Task<bool> UpdateSensorAsync(
             string macAddress,
             Sensor sensor)
         {
             try
             {
-                var entity = new TableEntity(
-                    "Sensor",
-                    macAddress)
-                {
-                    ["Location"] = sensor.Location,
-                    ["Category"] = sensor.Category
-                };
+                var entity =
+                    new TableEntity(
+                        "Sensor",
+                        macAddress)
+                    {
+                        ["Location"] =
+                            sensor.Location,
+
+                        ["Category"] =
+                            sensor.Category
+                    };
 
                 await _tableClient.UpdateEntityAsync(
                     entity,
@@ -108,14 +150,19 @@ namespace SmartX.Api.Services
 
                 return true;
             }
-            catch (RequestFailedException ex) when (ex.Status == 404)
+            catch (RequestFailedException ex)
+                when (ex.Status == 404)
             {
                 return false;
             }
         }
 
-        // Deletes an existing sensor.
-        public async Task<bool> DeleteSensorAsync(string macAddress)
+        // ============================================================
+        // DELETE SENSOR
+        // ============================================================
+
+        public async Task<bool> DeleteSensorAsync(
+            string macAddress)
         {
             try
             {
@@ -125,10 +172,35 @@ namespace SmartX.Api.Services
 
                 return true;
             }
-            catch (RequestFailedException ex) when (ex.Status == 404)
+            catch (RequestFailedException ex)
+                when (ex.Status == 404)
             {
                 return false;
             }
+        }
+
+        // ============================================================
+        // SENSOR MAPPING
+        // ============================================================
+
+        private static Sensor MapSensor(
+            TableEntity entity)
+        {
+            return new Sensor
+            {
+                MacAddress =
+                    entity.RowKey,
+
+                Location =
+                    entity.GetString(
+                        "Location")
+                    ?? string.Empty,
+
+                Category =
+                    entity.GetString(
+                        "Category")
+                    ?? string.Empty
+            };
         }
     }
 }
