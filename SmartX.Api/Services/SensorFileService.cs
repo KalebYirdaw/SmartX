@@ -55,6 +55,10 @@ namespace SmartX.Api.Services
                 ShareName);
         }
 
+        // ============================================================
+        // AZURE FILE SHARE INITIALIZATION
+        // ============================================================
+
         public async Task InitializeAsync()
         {
             await _shareClient.CreateIfNotExistsAsync();
@@ -70,6 +74,10 @@ namespace SmartX.Api.Services
                 ShareName,
                 DirectoryName);
         }
+
+        // ============================================================
+        // FILE VALIDATION
+        // ============================================================
 
         public bool IsAllowedFileType(
             string fileName,
@@ -90,8 +98,8 @@ namespace SmartX.Api.Services
                 return false;
             }
 
-            // Accept the browser-provided MIME type when it
-            // matches the expected type.
+            // Accept an empty MIME type, otherwise require
+            // the uploaded MIME type to match the extension.
             return string.IsNullOrWhiteSpace(contentType)
                    ||
                    contentType.Equals(
@@ -105,18 +113,16 @@ namespace SmartX.Api.Services
                    fileSize <= MaxFileSize;
         }
 
-        public async Task UploadFileAsync(
-            string sensorMacAddress,
+        // ============================================================
+        // RUBRIC-COMPATIBLE DOCUMENT API
+        // ============================================================
+
+        // POST /api/documents/upload
+        public async Task<DocumentMetadata> UploadDocumentAsync(
             string fileName,
             string contentType,
             Stream fileStream)
         {
-            if (string.IsNullOrWhiteSpace(sensorMacAddress))
-            {
-                throw new ArgumentException(
-                    "Sensor MAC address is required.");
-            }
-
             if (string.IsNullOrWhiteSpace(fileName))
             {
                 throw new ArgumentException(
@@ -149,7 +155,224 @@ namespace SmartX.Api.Services
                     "The uploaded file is empty.");
             }
 
-            if (!IsFileSizeAllowed(fileStream.Length))
+            if (!IsFileSizeAllowed(
+                    fileStream.Length))
+            {
+                throw new InvalidOperationException(
+                    "The file size cannot exceed 10 MB.");
+            }
+
+            var directoryClient =
+                _shareClient.GetDirectoryClient(
+                    DirectoryName);
+
+            var safeFileName =
+                SanitizeFileName(fileName);
+
+            var fileClient =
+                directoryClient.GetFileClient(
+                    safeFileName);
+
+            // Create the Azure File with the correct size.
+            await fileClient.CreateAsync(
+                fileStream.Length);
+
+            // Ensure the stream starts from the beginning.
+            if (fileStream.CanSeek)
+            {
+                fileStream.Position = 0;
+            }
+
+            // Stream the uploaded content to Azure File Share.
+            await fileClient.UploadAsync(
+                fileStream);
+
+            // Retrieve Azure File properties.
+            var properties =
+                await fileClient.GetPropertiesAsync();
+
+            var metadata =
+                new DocumentMetadata
+                {
+                    FileName =
+                        safeFileName,
+
+                    ContentType =
+                        contentType,
+
+                    Size =
+                        properties.Value.ContentLength,
+
+                    UploadDate =
+                        properties.Value.LastModified
+                };
+
+            _logger.LogInformation(
+                "Document '{FileName}' uploaded to Azure File Share '{ShareName}'. Size: {FileSize} bytes.",
+                safeFileName,
+                ShareName,
+                metadata.Size);
+
+            return metadata;
+        }
+
+        // GET /api/documents
+        public async Task<List<DocumentMetadata>>
+            GetDocumentsAsync()
+        {
+            var directoryClient =
+                _shareClient.GetDirectoryClient(
+                    DirectoryName);
+
+            var documents =
+                new List<DocumentMetadata>();
+
+            await foreach (var item in
+                directoryClient.GetFilesAndDirectoriesAsync())
+            {
+                // Ignore directories.
+                if (!item.FileSize.HasValue)
+                {
+                    continue;
+                }
+
+                var fileClient =
+                    directoryClient.GetFileClient(
+                        item.Name);
+
+                // Get the actual Azure File properties.
+                var properties =
+                    await fileClient.GetPropertiesAsync();
+
+                var extension =
+                    Path.GetExtension(
+                        item.Name);
+
+                documents.Add(
+                    new DocumentMetadata
+                    {
+                        FileName =
+                            item.Name,
+
+                        ContentType =
+                            GetContentType(
+                                extension),
+
+                        Size =
+                            properties.Value.ContentLength,
+
+                        UploadDate =
+                            properties.Value.LastModified
+                    });
+            }
+
+            return documents
+                .OrderByDescending(
+                    document => document.UploadDate)
+                .ToList();
+        }
+
+        // GET /api/documents/download/{fileName}
+        public async Task<DocumentDownload?>
+            DownloadDocumentAsync(
+                string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                throw new ArgumentException(
+                    "File name is required.");
+            }
+
+            var directoryClient =
+                _shareClient.GetDirectoryClient(
+                    DirectoryName);
+
+            var safeFileName =
+                SanitizeFileName(fileName);
+
+            var fileClient =
+                directoryClient.GetFileClient(
+                    safeFileName);
+
+            if (!await fileClient.ExistsAsync())
+            {
+                return null;
+            }
+
+            // Stream the file from Azure File Share.
+            var download =
+                await fileClient.DownloadAsync();
+
+            var extension =
+                Path.GetExtension(
+                    safeFileName);
+
+            return new DocumentDownload
+            {
+                FileName =
+                    safeFileName,
+
+                ContentType =
+                    GetContentType(
+                        extension),
+
+                Content =
+                    download.Value.Content
+            };
+        }
+
+        // ============================================================
+        // EXISTING SENSOR FILE FUNCTIONALITY
+        // ============================================================
+
+        public async Task UploadFileAsync(
+            string sensorMacAddress,
+            string fileName,
+            string contentType,
+            Stream fileStream)
+        {
+            if (string.IsNullOrWhiteSpace(
+                    sensorMacAddress))
+            {
+                throw new ArgumentException(
+                    "Sensor MAC address is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                    fileName))
+            {
+                throw new ArgumentException(
+                    "File name is required.");
+            }
+
+            if (fileStream == null)
+            {
+                throw new ArgumentException(
+                    "File stream is required.");
+            }
+
+            if (!IsAllowedFileType(
+                    fileName,
+                    contentType))
+            {
+                throw new InvalidOperationException(
+                    "The selected file type is not supported.");
+            }
+
+            if (!fileStream.CanRead)
+            {
+                throw new InvalidOperationException(
+                    "The uploaded file cannot be read.");
+            }
+
+            if (fileStream.Length <= 0)
+            {
+                throw new InvalidOperationException(
+                    "The uploaded file is empty.");
+            }
+
+            if (!IsFileSizeAllowed(
+                    fileStream.Length))
             {
                 throw new InvalidOperationException(
                     "The file size cannot exceed 10 MB.");
@@ -164,7 +387,8 @@ namespace SmartX.Api.Services
                     sensorMacAddress);
 
             var safeFileName =
-                SanitizeFileName(fileName);
+                SanitizeFileName(
+                    fileName);
 
             var storedFileName =
                 $"{safeMacAddress}_{safeFileName}";
@@ -176,6 +400,11 @@ namespace SmartX.Api.Services
             await fileClient.CreateAsync(
                 fileStream.Length);
 
+            if (fileStream.CanSeek)
+            {
+                fileStream.Position = 0;
+            }
+
             await fileClient.UploadAsync(
                 fileStream);
 
@@ -186,8 +415,9 @@ namespace SmartX.Api.Services
                 fileStream.Length);
         }
 
-        public async Task<List<SensorFileMetadata>> GetFilesAsync(
-            string sensorMacAddress)
+        public async Task<List<SensorFileMetadata>>
+            GetFilesAsync(
+                string sensorMacAddress)
         {
             var directoryClient =
                 _shareClient.GetDirectoryClient(
@@ -227,7 +457,8 @@ namespace SmartX.Api.Services
                         originalFileName);
 
                 var contentType =
-                    GetContentType(extension);
+                    GetContentType(
+                        extension);
 
                 files.Add(
                     new SensorFileMetadata
@@ -247,13 +478,15 @@ namespace SmartX.Api.Services
             }
 
             return files
-                .OrderBy(f => f.FileName)
+                .OrderBy(
+                    f => f.FileName)
                 .ToList();
         }
 
-        public async Task<SensorFileDownload?> DownloadFileAsync(
-            string sensorMacAddress,
-            string fileName)
+        public async Task<SensorFileDownload?>
+            DownloadFileAsync(
+                string sensorMacAddress,
+                string fileName)
         {
             if (string.IsNullOrWhiteSpace(
                     sensorMacAddress))
@@ -262,7 +495,8 @@ namespace SmartX.Api.Services
                     "Sensor MAC address is required.");
             }
 
-            if (string.IsNullOrWhiteSpace(fileName))
+            if (string.IsNullOrWhiteSpace(
+                    fileName))
             {
                 throw new ArgumentException(
                     "File name is required.");
@@ -305,12 +539,17 @@ namespace SmartX.Api.Services
                     safeFileName,
 
                 ContentType =
-                    GetContentType(extension),
+                    GetContentType(
+                        extension),
 
                 Content =
                     download.Value.Content
             };
         }
+
+        // ============================================================
+        // HELPER METHODS
+        // ============================================================
 
         private static string SanitizeMacAddress(
             string sensorMacAddress)
@@ -353,6 +592,34 @@ namespace SmartX.Api.Services
             return "application/octet-stream";
         }
     }
+
+    // ================================================================
+    // DOCUMENT MODELS
+    // ================================================================
+
+    public class DocumentMetadata
+    {
+        public string FileName { get; set; } = string.Empty;
+
+        public string ContentType { get; set; } = string.Empty;
+
+        public long Size { get; set; }
+
+        public DateTimeOffset UploadDate { get; set; }
+    }
+
+    public class DocumentDownload
+    {
+        public string FileName { get; set; } = string.Empty;
+
+        public string ContentType { get; set; } = string.Empty;
+
+        public Stream Content { get; set; } = Stream.Null;
+    }
+
+    // ================================================================
+    // EXISTING SENSOR FILE MODELS
+    // ================================================================
 
     public class SensorFileMetadata
     {
