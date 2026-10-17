@@ -126,8 +126,8 @@ The client is configured for `http://localhost:5221`. The API address is read fr
 Use **Process Incoming Queue** on the command-stream page to demonstrate critical-priority processing before normal FIFO readings. `/api/command-stream/process` returns the processing order and counts. These processing structures and learned command patterns are in-memory demonstration structures. Azure Tables remain the persistent store for sensor and telemetry records. A restart clears the in-memory Part 2 queues, command history and learned patterns.
 
 ## Screenshot
-<img width="638" height="213" alt="Screenshot 2026-10-17 151536" src="https://github.com/user-attachments/assets/916d9431-7b67-42f6-95c7-8939163bdd59" />
 
+<img width="1365" height="767" alt="Screenshot 2026-10-17 140716" src="https://github.com/user-attachments/assets/5ead6942-8c7e-4eb7-ba74-444232fa0cce" />
 
 ## Quick demonstration
 
