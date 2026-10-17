@@ -8,10 +8,11 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// Configure HttpClient to communicate with SmartX.Api
+// Read API address from wwwroot/appsettings.json so it is not hard-coded here.
+var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5212/";
 builder.Services.AddScoped(sp => new HttpClient
 {
-    BaseAddress = new Uri("http://localhost:5212/")
+    BaseAddress = new Uri(apiBaseUrl)
 });
 
 // Register SmartX API services

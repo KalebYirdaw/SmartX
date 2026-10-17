@@ -12,20 +12,19 @@ namespace SmartX.Api
             builder.Services.AddControllers();
 
             // Allow the SmartX.Client Blazor app to call the API
+            var clientOrigin = builder.Configuration["Client:BaseUrl"] ?? "http://localhost:5221";
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("SmartXClient", policy =>
                 {
-                    policy
-                        .WithOrigins("http://localhost:5221")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod();
+                    policy.WithOrigins(clientOrigin).AllowAnyHeader().AllowAnyMethod();
                 });
             });
 
             // Azure Table Storage
             builder.Services.AddSingleton<SensorTableService>();
             builder.Services.AddSingleton<TelemetryService>();
+            builder.Services.AddSingleton<CommandStreamService>();
 
             // Telemetry processing
             builder.Services.AddSingleton<TelemetryBatchProcessor>();

@@ -5,7 +5,8 @@ namespace SmartX.Api.Services
 {
     public class SensorFileService
     {
-        private readonly ShareClient _shareClient;
+        private readonly ShareClient? _shareClient;
+        private readonly string? _localStoragePath;
         private readonly ILogger<SensorFileService> _logger;
 
         // Required Azure File Share name from the PoE rubric.
@@ -36,9 +37,39 @@ namespace SmartX.Api.Services
 
         public SensorFileService(
             IConfiguration configuration,
+            IWebHostEnvironment environment,
             ILogger<SensorFileService> logger)
         {
             _logger = logger;
+
+            var provider =
+                configuration["FileStorage:Provider"] ?? "Azure";
+
+            if (provider.Equals(
+                    "Local",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                var localPath =
+                    configuration["FileStorage:LocalPath"]
+                    ?? Path.Combine(
+                        "App_Data",
+                        "sensor-files");
+
+                _localStoragePath =
+                    Path.GetFullPath(
+                        localPath,
+                        environment.ContentRootPath);
+
+                return;
+            }
+
+            if (!provider.Equals(
+                    "Azure",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Unsupported file storage provider '{provider}'.");
+            }
 
             var connectionString =
                 configuration.GetConnectionString(
@@ -61,10 +92,23 @@ namespace SmartX.Api.Services
 
         public async Task InitializeAsync()
         {
-            await _shareClient.CreateIfNotExistsAsync();
+            if (_localStoragePath != null)
+            {
+                Directory.CreateDirectory(
+                    GetLocalStoragePath());
+
+                _logger.LogInformation(
+                    "Local file storage initialized at '{StoragePath}'.",
+                    GetLocalStoragePath());
+
+                return;
+            }
+
+            var shareClient = GetShareClient();
+            await shareClient.CreateIfNotExistsAsync();
 
             var directoryClient =
-                _shareClient.GetDirectoryClient(
+                shareClient.GetDirectoryClient(
                     DirectoryName);
 
             await directoryClient.CreateIfNotExistsAsync();
@@ -162,8 +206,16 @@ namespace SmartX.Api.Services
                     "The file size cannot exceed 10 MB.");
             }
 
+            if (_localStoragePath != null)
+            {
+                return await UploadLocalDocumentAsync(
+                    fileName,
+                    contentType,
+                    fileStream);
+            }
+
             var directoryClient =
-                _shareClient.GetDirectoryClient(
+                GetShareClient().GetDirectoryClient(
                     DirectoryName);
 
             var safeFileName =
@@ -220,8 +272,13 @@ namespace SmartX.Api.Services
         public async Task<List<DocumentMetadata>>
             GetDocumentsAsync()
         {
+            if (_localStoragePath != null)
+            {
+                return await GetLocalDocumentsAsync();
+            }
+
             var directoryClient =
-                _shareClient.GetDirectoryClient(
+                GetShareClient().GetDirectoryClient(
                     DirectoryName);
 
             var documents =
@@ -283,8 +340,14 @@ namespace SmartX.Api.Services
                     "File name is required.");
             }
 
+            if (_localStoragePath != null)
+            {
+                return await DownloadLocalDocumentAsync(
+                    fileName);
+            }
+
             var directoryClient =
-                _shareClient.GetDirectoryClient(
+                GetShareClient().GetDirectoryClient(
                     DirectoryName);
 
             var safeFileName =
@@ -378,8 +441,18 @@ namespace SmartX.Api.Services
                     "The file size cannot exceed 10 MB.");
             }
 
+            if (_localStoragePath != null)
+            {
+                await UploadLocalSensorFileAsync(
+                    sensorMacAddress,
+                    fileName,
+                    fileStream);
+
+                return;
+            }
+
             var directoryClient =
-                _shareClient.GetDirectoryClient(
+                GetShareClient().GetDirectoryClient(
                     DirectoryName);
 
             var safeMacAddress =
@@ -419,8 +492,14 @@ namespace SmartX.Api.Services
             GetFilesAsync(
                 string sensorMacAddress)
         {
+            if (_localStoragePath != null)
+            {
+                return await GetLocalSensorFilesAsync(
+                    sensorMacAddress);
+            }
+
             var directoryClient =
-                _shareClient.GetDirectoryClient(
+                GetShareClient().GetDirectoryClient(
                     DirectoryName);
 
             var safeMacAddress =
@@ -502,8 +581,15 @@ namespace SmartX.Api.Services
                     "File name is required.");
             }
 
+            if (_localStoragePath != null)
+            {
+                return await DownloadLocalSensorFileAsync(
+                    sensorMacAddress,
+                    fileName);
+            }
+
             var directoryClient =
-                _shareClient.GetDirectoryClient(
+                GetShareClient().GetDirectoryClient(
                     DirectoryName);
 
             var safeMacAddress =
@@ -550,6 +636,237 @@ namespace SmartX.Api.Services
         // ============================================================
         // HELPER METHODS
         // ============================================================
+
+        private ShareClient GetShareClient()
+        {
+            return _shareClient
+                   ?? throw new InvalidOperationException(
+                       "Azure File Share storage is not configured.");
+        }
+
+        private string GetLocalStoragePath()
+        {
+            return _localStoragePath
+                   ?? throw new InvalidOperationException(
+                       "Local file storage is not configured.");
+        }
+
+        private string GetLocalFilePath(string fileName)
+        {
+            return Path.Combine(
+                GetLocalStoragePath(),
+                fileName);
+        }
+
+        private async Task<DocumentMetadata> UploadLocalDocumentAsync(
+            string fileName,
+            string contentType,
+            Stream fileStream)
+        {
+            var safeFileName =
+                SanitizeFileName(fileName);
+
+            var localFilePath =
+                GetLocalFilePath(safeFileName);
+
+            if (fileStream.CanSeek)
+            {
+                fileStream.Position = 0;
+            }
+
+            await using (var localFile =
+                new FileStream(
+                    localFilePath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    81920,
+                    useAsync: true))
+            {
+                await fileStream.CopyToAsync(localFile);
+            }
+
+            var fileInfo =
+                new FileInfo(localFilePath);
+
+            var metadata =
+                new DocumentMetadata
+                {
+                    FileName = safeFileName,
+                    ContentType = contentType,
+                    Size = fileInfo.Length,
+                    UploadDate = fileInfo.LastWriteTimeUtc
+                };
+
+            _logger.LogInformation(
+                "Document '{FileName}' saved to local file storage. Size: {FileSize} bytes.",
+                safeFileName,
+                metadata.Size);
+
+            return metadata;
+        }
+
+        private Task<List<DocumentMetadata>> GetLocalDocumentsAsync()
+        {
+            var documents =
+                Directory.EnumerateFiles(
+                        GetLocalStoragePath())
+                    .Select(path =>
+                    {
+                        var fileInfo = new FileInfo(path);
+
+                        return new DocumentMetadata
+                        {
+                            FileName = fileInfo.Name,
+                            ContentType = GetContentType(
+                                fileInfo.Extension),
+                            Size = fileInfo.Length,
+                            UploadDate = fileInfo.LastWriteTimeUtc
+                        };
+                    })
+                    .OrderByDescending(
+                        document => document.UploadDate)
+                    .ToList();
+
+            return Task.FromResult(documents);
+        }
+
+        private Task<DocumentDownload?> DownloadLocalDocumentAsync(
+            string fileName)
+        {
+            var safeFileName =
+                SanitizeFileName(fileName);
+
+            var localFilePath =
+                GetLocalFilePath(safeFileName);
+
+            if (!File.Exists(localFilePath))
+            {
+                return Task.FromResult<DocumentDownload?>(null);
+            }
+
+            var download =
+                new DocumentDownload
+                {
+                    FileName = safeFileName,
+                    ContentType = GetContentType(
+                        Path.GetExtension(safeFileName)),
+                    Content = new FileStream(
+                        localFilePath,
+                        FileMode.Open,
+                        FileAccess.Read,
+                        FileShare.Read,
+                        81920,
+                        useAsync: true)
+                };
+
+            return Task.FromResult<DocumentDownload?>(download);
+        }
+
+        private async Task UploadLocalSensorFileAsync(
+            string sensorMacAddress,
+            string fileName,
+            Stream fileStream)
+        {
+            var safeFileName =
+                SanitizeFileName(fileName);
+
+            var storedFileName =
+                $"{SanitizeMacAddress(sensorMacAddress)}_{safeFileName}";
+
+            if (fileStream.CanSeek)
+            {
+                fileStream.Position = 0;
+            }
+
+            await using var localFile =
+                new FileStream(
+                    GetLocalFilePath(storedFileName),
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    81920,
+                    useAsync: true);
+
+            await fileStream.CopyToAsync(localFile);
+
+            _logger.LogInformation(
+                "Uploaded file '{FileName}' for sensor '{SensorMacAddress}' to local file storage. Size: {FileSize} bytes.",
+                safeFileName,
+                sensorMacAddress,
+                localFile.Length);
+        }
+
+        private Task<List<SensorFileMetadata>> GetLocalSensorFilesAsync(
+            string sensorMacAddress)
+        {
+            var prefix =
+                $"{SanitizeMacAddress(sensorMacAddress)}_";
+
+            var files =
+                Directory.EnumerateFiles(
+                        GetLocalStoragePath())
+                    .Select(path => new FileInfo(path))
+                    .Where(fileInfo =>
+                        fileInfo.Name.StartsWith(
+                            prefix,
+                            StringComparison.OrdinalIgnoreCase))
+                    .Select(fileInfo =>
+                    {
+                        var originalFileName =
+                            fileInfo.Name.Substring(
+                                prefix.Length);
+
+                        return new SensorFileMetadata
+                        {
+                            FileName = originalFileName,
+                            StoredFileName = fileInfo.Name,
+                            ContentType = GetContentType(
+                                Path.GetExtension(originalFileName)),
+                            Size = fileInfo.Length
+                        };
+                    })
+                    .OrderBy(file => file.FileName)
+                    .ToList();
+
+            return Task.FromResult(files);
+        }
+
+        private Task<SensorFileDownload?> DownloadLocalSensorFileAsync(
+            string sensorMacAddress,
+            string fileName)
+        {
+            var safeFileName =
+                SanitizeFileName(fileName);
+
+            var storedFileName =
+                $"{SanitizeMacAddress(sensorMacAddress)}_{safeFileName}";
+
+            var localFilePath =
+                GetLocalFilePath(storedFileName);
+
+            if (!File.Exists(localFilePath))
+            {
+                return Task.FromResult<SensorFileDownload?>(null);
+            }
+
+            var download =
+                new SensorFileDownload
+                {
+                    FileName = safeFileName,
+                    ContentType = GetContentType(
+                        Path.GetExtension(safeFileName)),
+                    Content = new FileStream(
+                        localFilePath,
+                        FileMode.Open,
+                        FileAccess.Read,
+                        FileShare.Read,
+                        81920,
+                        useAsync: true)
+                };
+
+            return Task.FromResult<SensorFileDownload?>(download);
+        }
 
         private static string SanitizeMacAddress(
             string sensorMacAddress)

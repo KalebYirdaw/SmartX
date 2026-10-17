@@ -1,362 +1,143 @@
-# Smart-X IoT Mesh Ecosystem
+# Smart-X IoT Mesh Ecosystem — Part 2
 
-## Overview
+A beginner-friendly simulated IoT monitoring and command application built with **.NET 10 Web API**, **Blazor WebAssembly**, and **Azure Table Storage**. Local development uses Azurite for tables and a local-folder substitute for Azure Files. No physical sensors are required. Commands are simulations and do not control real equipment.
 
-Smart-X is a simulated Internet of Things (IoT) mesh ecosystem developed as part of the Smart-X Portfolio of Evidence (PoE). The system demonstrates how sensor devices can be managed, monitored and connected to a central backend through a web-based application programming interface (API).
+## Features
 
-The project focuses on practical IoT backend functionality, cloud-style storage integration, telemetry processing, sensor health monitoring, document management and containerisation.
+- Register and manage sensors (MAC address, location and category).
+- Generate and inspect mock temperature, power and valve telemetry.
+- View sensor health, historical readings and detected anomalies.
+- Process readings through a normal FIFO queue and a critical priority queue.
+- Use a `Dictionary` for fast device lookup, a `SortedDictionary` for timestamp history, a `HashSet` for unique active alerts, and a `Stack` for command Undo.
+- Issue simulated pump, valve and relay commands.
+- Filter devices by category or active alert state.
+- Show automated suggested actions based on critical readings.
+- API health endpoint and configuration-based client API URL.
+- Landing page shows API status and all three assignment pillars. Network Topology is disabled for Part 3.
 
-The solution is implemented using ASP.NET Core for the backend API and Blazor for the client application.
-
----
-
-## Project Structure
-
-The Smart-X solution contains two main projects:
-
-```text
-SmartX
-│
-├── SmartX.Api
-│   ├── Controllers
-│   ├── Models
-│   ├── Services
-│   ├── Dockerfile
-│   ├── Program.cs
-│   └── appsettings.json
-│
-└── SmartX.Client
-    ├── Pages
-    ├── Layout
-    ├── wwwroot
-    └── Program.cs
-```
-
-### SmartX.Api
-
-`SmartX.Api` provides the backend services for the Smart-X ecosystem.
-
-It manages:
-
-* Sensor registration and management
-* Sensor category filtering
-* Telemetry collection
-* Mock telemetry generation
-* Telemetry anomaly detection
-* Sensor health information
-* Sensor file management
-* Staff document management
-* Azure Table Storage integration
-* Azure File Share integration
-* API validation and error handling
-
-### SmartX.Client
-
-`SmartX.Client` provides the Blazor web interface used to interact with the Smart-X backend.
-
-The client provides pages for working with sensor and telemetry information through the API.
-
----
-
-# Main Features
-
-## Sensor Management
-
-The API provides CRUD operations for Smart-X sensors.
-
-Sensors contain:
-
-* MAC address
-* Location
-* Category
-
-Example sensor categories include:
+## Projects
 
 ```text
-Temperature
-Humidity
-Pressure
+SmartX-main/
+├── SmartX.Api/       # .NET 10 backend API
+└── SmartX.Client/    # Blazor WebAssembly frontend
 ```
-
-The API supports retrieving all sensors as well as filtering sensors by category.
-
-Example:
-
-```http
-GET /api/Sensor
-```
-
-```http
-GET /api/Sensor?category=Temperature
-```
-
----
-
-## Telemetry
-
-Smart-X supports telemetry collection from sensors.
-
-Telemetry records contain information such as:
-
-* Sensor MAC address
-* Metric
-* Value
-* Timestamp
-
-Telemetry can be submitted through the API and retrieved for individual sensors.
-
-The system also provides mock telemetry generation to assist with testing.
-
-Example:
-
-```http
-POST /api/Telemetry
-```
-
-```http
-GET /api/Telemetry/{sensorMacAddress}
-```
-
-Mock telemetry can be generated using:
-
-```http
-POST /api/Telemetry/seed/{sensorMacAddress}?count=100
-```
-
-The system also provides telemetry anomaly detection:
-
-```http
-GET /api/Telemetry/anomalies/{sensorMacAddress}
-```
-
----
-
-# Sensor Health Monitoring
-
-Smart-X provides a sensor health endpoint that can be used to retrieve health information associated with a sensor.
-
-```http
-GET /api/SensorHealth/{sensorMacAddress}
-```
-
-This supports the monitoring aspect of the Smart-X IoT ecosystem.
-
----
-
-# Azure Table Storage
-
-Sensor and telemetry-related information is integrated with Azure Storage technologies.
-
-During local development, the project uses **Azurite** to emulate Azure Storage services locally.
-
-This allows the application to demonstrate cloud-style storage functionality without requiring a production Azure environment during development and testing.
-
----
-
-# Azure File Share Integration
-
-Smart-X includes File Share functionality for document and sensor-file storage.
-
-The document API provides:
-
-```http
-POST /api/documents/upload
-GET /api/documents
-GET /api/documents/download/{fileName}
-```
-
-The implementation supports stream-based file transfers and records file metadata such as:
-
-* File name
-* File size
-* Upload date
-* Content type
-
-File type and size validation are also applied during uploads.
-
-The local development environment uses an Azurite File Share to simulate Azure Files.
-
----
-
-# Sensor File Management
-
-The application also provides sensor-specific file management endpoints.
-
-```http
-POST /api/sensor-files/{macAddress}
-```
-
-```http
-GET /api/sensor-files/{macAddress}
-```
-
-```http
-GET /api/sensor-files/{macAddress}/download/{fileName}
-```
-
-These endpoints support uploading, listing and downloading files associated with individual sensors.
-
----
-
-# API Endpoints
-
-| Function             | Method | Endpoint                                               |
-| -------------------- | ------ | ------------------------------------------------------ |
-| Get all sensors      | GET    | `/api/Sensor`                                          |
-| Filter sensors       | GET    | `/api/Sensor?category={category}`                      |
-| Get sensor           | GET    | `/api/Sensor/{macAddress}`                             |
-| Create sensor        | POST   | `/api/Sensor`                                          |
-| Update sensor        | PUT    | `/api/Sensor/{macAddress}`                             |
-| Delete sensor        | DELETE | `/api/Sensor/{macAddress}`                             |
-| Add telemetry        | POST   | `/api/Telemetry`                                       |
-| Get telemetry        | GET    | `/api/Telemetry/{sensorMacAddress}`                    |
-| Seed telemetry       | POST   | `/api/Telemetry/seed/{sensorMacAddress}?count={count}` |
-| Detect anomalies     | GET    | `/api/Telemetry/anomalies/{sensorMacAddress}`          |
-| Sensor health        | GET    | `/api/SensorHealth/{sensorMacAddress}`                 |
-| Upload document      | POST   | `/api/documents/upload`                                |
-| List documents       | GET    | `/api/documents`                                       |
-| Download document    | GET    | `/api/documents/download/{fileName}`                   |
-| Upload sensor file   | POST   | `/api/sensor-files/{macAddress}`                       |
-| List sensor files    | GET    | `/api/sensor-files/{macAddress}`                       |
-| Download sensor file | GET    | `/api/sensor-files/{macAddress}/download/{fileName}`   |
-
----
-
-# Testing
-
-API functionality was tested using **Postman**.
-
-A dedicated Postman collection named:
-
-```text
-SmartX IoT API
-```
-
-was created to organise the API tests.
-
-The collection includes requests for:
-
-* Sensors
-* Sensor category filtering
-* Telemetry
-* Sensor health
-* Documents
-* Sensor files
-
-Successful API testing was performed against the local ASP.NET Core API.
-
-Examples of successfully tested operations include:
-
-```text
-GET /api/Sensor
-GET /api/Sensor?category=Temperature
-GET /api/documents
-GET /api/documents/download/SmartX-Test.txt
-GET /api/SensorHealth/{sensorMacAddress}
-GET /api/Telemetry/{sensorMacAddress}
-```
-
-The API returned successful HTTP responses during testing.
-
----
-
-# Docker
-
-The `SmartX.Api` project includes a Dockerfile for containerisation.
-
-Docker is being used to support deployment and portability of the backend API.
-
-The final deployment stage includes building and running the Smart-X API as a container and publishing the resulting image to Docker Hub.
-
----
-
-# Security and Reliability
-
-Security and reliability are considered throughout the implementation.
-
-The project includes:
-
-* Input validation
-* MAC address validation
-* File size validation
-* MIME/content-type validation
-* Controlled API error responses
-* Logging for important file operations
-* Separation between the client and backend API
-* Cloud-style storage abstraction
-* Containerisation for consistent deployment
-
-Further production hardening would include authentication and authorisation, HTTPS enforcement, rate limiting, secret management and additional monitoring.
-
----
-
-# Local Development
 
 ## Requirements
 
-The following tools are required to run the project:
+- .NET 10 SDK
+- Visual Studio or another .NET IDE
+- Azurite for local Azure Table Storage
+- A local folder for file uploads in Development (Azurite does not emulate Azure Files)
+- Optional: Postman
 
-* .NET SDK
-* Visual Studio or another compatible .NET development environment
-* Docker Desktop
-* Postman
-* Azurite for local Azure Storage emulation
+## Run locally
 
----
+Run the commands below from the `SmartX-main` folder. Keep each service running in its own terminal.
 
-## Running the API
+### 1. Start Azurite
 
-Open the solution and run the `SmartX.Api` project.
+Install Azurite once if it is not already installed:
 
-The local API is currently configured to run on:
-
-```text
-http://localhost:5212
+```powershell
+npm.cmd install --global azurite
 ```
 
-The exact port may differ depending on the local development configuration.
+In the first terminal, start Azurite. Resolving its npm install location this way also works when the npm global folder is not on `PATH`:
 
----
+```powershell
+$npmPrefix = (npm.cmd config get prefix).Trim()
+& (Join-Path $npmPrefix "azurite.cmd") --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
+```
 
-## Running the Client
+### 2. Configure storage
 
-Run the `SmartX.Client` project.
+Development is configured to use Azurite for Azure Tables and a local folder (`SmartX.Api/App_Data/sensor-files`) for document and sensor-file uploads. This works without an Azure account or storage charges. Uploaded local files are ignored by Git.
 
-The Blazor client can then communicate with the Smart-X API.
+The local folder keeps the file endpoints usable for demonstrations, but it is **not Azure Files**. If the assessment specifically requires a real Azure File Share, confirm with your assessor whether the local substitute is acceptable; the project keeps an Azure Files provider for use with an active Azure Storage Account.
 
----
+For Azure deployment, set `FileStorage:Provider` to `Azure` and supply both `ConnectionStrings:AzureStorage` and `ConnectionStrings:AzureFileStorage` using user secrets or environment variables. Never commit production connection strings or secrets to source control.
 
-# Development Progress
+### 3. Start the API
 
-The project has been developed incrementally with Git version control.
+In a second terminal:
 
-Major implementation checkpoints have been committed to GitHub throughout development.
+```powershell
+Set-Location .\SmartX.Api
+dotnet restore
+dotnet run
+```
 
-The repository currently contains multiple development commits documenting the progression of the Smart-X implementation.
+The development API is configured for `http://localhost:5212`. Health check:
 
----
+```http
+GET http://localhost:5212/api/health
+```
 
-# Future Improvements
+The response should contain `"status": "Healthy"`.
 
-Potential future improvements include:
+### 4. Start the client
 
-* Production Azure deployment
-* Authentication and role-based authorisation
-* Real IoT device connectivity
-* MQTT integration
-* Real-time telemetry dashboards
-* Advanced anomaly detection
-* Database persistence improvements
-* Automated API testing
-* CI/CD deployment pipelines
-* Application monitoring and logging
-* Production HTTPS configuration
-* Scalable cloud deployment
+In a third terminal:
 
----
+```powershell
+Set-Location .\SmartX.Client
+dotnet restore
+dotnet run
+```
 
-# Conclusion
+The client is configured for `http://localhost:5221`. The API address is read from `SmartX.Client/wwwroot/appsettings.json` (`ApiBaseUrl`) instead of being hard-coded in `Program.cs`. Change this setting if your API runs at another address.
 
-Smart-X demonstrates a practical IoT ecosystem in which sensors, telemetry, health monitoring and document storage can be managed through a central API.
+## Useful endpoints
 
-The project combines ASP.NET Core, Blazor, Azure Storage concepts, Azurite, Postman and Docker to demonstrate the development and deployment of a modular IoT-oriented software solution.
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/health` | API health status |
+| GET | `/api/Sensor` | List registered sensors |
+| POST | `/api/Sensor` | Register a sensor |
+| PUT | `/api/Sensor/{macAddress}` | Update a sensor |
+| DELETE | `/api/Sensor/{macAddress}` | Delete a sensor |
+| POST | `/api/Telemetry` | Submit telemetry for a registered sensor |
+| GET | `/api/Telemetry/{sensorMacAddress}` | Read telemetry history |
+| POST | `/api/Telemetry/seed/{sensorMacAddress}?count=100` | Generate mock readings |
+| GET | `/api/Telemetry/anomalies/{sensorMacAddress}` | Get detected anomalies |
+| GET | `/api/SensorHealth/{sensorMacAddress}` | Get sensor health |
+| GET | `/api/command-stream/status` | Queue and processor status |
+| POST | `/api/command-stream/simulate/{macAddress}?count=100` | Process existing readings through Part 2 structures |
+| POST | `/api/command-stream/commands` | Record a simulated device command |
+| POST | `/api/command-stream/undo` | Undo the last recorded command |
+| GET | `/api/command-stream/history?count=100` | Get processed telemetry history |
+| GET | `/api/command-stream/suggestions` | Get automated suggested actions |
+| POST | `/api/documents/upload` | Upload a document (if configured) |
+| GET | `/api/documents` | List documents (if configured) |
+| GET | `/api/documents/download/{fileName}` | Download a document (if configured) |
+
+## Part 2 data structures
+
+- **Queue:** ordinary telemetry uses FIFO processing.
+- **PriorityQueue:** critical temperature, power or moisture readings are handled before normal readings.
+- **Stack:** manual commands can be undone in last-in, first-out order.
+- **Dictionary:** keeps the category/state of devices for fast lookup.
+- **SortedDictionary:** groups telemetry by timestamp for ordered history.
+- **HashSet:** keeps active alert identifiers unique so duplicate alert keys are not added.
+- **Recommendation engine:** evaluates the latest processed reading and suggests an investigation or simulated action for low moisture, high power or out-of-range temperature.
+
+These processing structures are in-memory demonstration structures. Azure Tables remain the persistent store for sensor and telemetry records. A restart clears the in-memory Part 2 queues, command history and suggestions.
+
+## Quick demonstration
+
+1. Start Azurite, API and client.
+2. Open **Sensor Management** and register a sensor, for example `AA:BB:CC:DD:EE:01`, location `Hydroponic Farm A`, category `Temperature`.
+3. Open **Telemetry** and generate mock telemetry for that registered sensor.
+4. Open **Real-Time Command Stream**, select the sensor and choose **Process Stored Readings**.
+5. Review the queue/alert counts and any Suggested Actions.
+6. Issue a simulated command, then select **Undo Last** to demonstrate the command stack.
+7. Open the Home page to show API status and the three architectural pillars.
+
+## Important notes
+
+- Register a sensor before sending telemetry. Unregistered sensor telemetry is rejected.
+- The command interface records simulated commands only; it does not control physical hardware.
+- `Network Topology & Mesh Routing` is intentionally disabled until Part 3.
+- Do not store real secrets or production credentials in source control.
+- For assessment submission, run the solution locally and verify all features before recording the demonstration.

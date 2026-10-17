@@ -1,0 +1,252 @@
+@page "/command-stream"
+@using System.Net.Http.Json
+@using System.ComponentModel.DataAnnotations
+@using SmartX.Client.Services
+@inject HttpClient Http
+
+<PageTitle>Real-Time Command Stream</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">Real-Time Command Stream & History</h1>
+            <p class="text-muted mb-0">Simulated device overrides, priority alerts and processing history.</p>
+        </div>
+        <button class="btn btn-outline-primary" @onclick="Refresh" disabled="@busy">Refresh</button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="alert @(isError ? "alert-danger" : "alert-info")">@message</div>
+    }
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="card h-100"><div class="card-body"><small class="text-muted">Normal FIFO queue</small><h3>@(status?.IncomingQueueCount ?? 0)</h3></div></div></div>
+        <div class="col-md-3"><div class="card h-100"><div class="card-body"><small class="text-muted">Critical priority queue</small><h3>@(status?.CriticalQueueCount ?? 0)</h3></div></div></div>
+        <div class="col-md-3"><div class="card h-100"><div class="card-body"><small class="text-muted">Devices seen by processor</small><h3>@(status?.RegisteredDeviceCount ?? 0)</h3></div></div></div>
+        <div class="col-md-3"><div class="card h-100"><div class="card-body"><small class="text-muted">Unique active alerts</small><h3>@(status?.ActiveAlerts?.Count ?? 0)</h3></div></div></div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="mb-0">Simulate telemetry processing</h5></div>
+        <div class="card-body">
+            <p class="text-muted">Select a registered device and pass its stored readings through the Part 2 queue and alert processor. This does not require physical hardware.</p>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Category filter</label>
+                    <select class="form-select" @bind="categoryFilter">
+                        <option value="All">All categories</option>
+                        @foreach (var category in sensors.Select(s => s.Category).Distinct().OrderBy(x => x))
+                        {
+                            <option value="@category">@category</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Alert filter</label>
+                    <select class="form-select" @bind="alertFilter">
+                        <option value="All">All devices</option>
+                        <option value="Alert">Devices with active alerts</option>
+                        <option value="Clear">Devices without active alerts</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Device</label>
+                    <select class="form-select" @bind="selectedMac">
+                        <option value="">Select a registered sensor</option>
+                        @foreach (var sensor in filteredSensors)
+                        {
+                            <option value="@sensor.MacAddress">@sensor.MacAddress — @sensor.Location (@sensor.Category)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Readings to process</label>
+                    <input type="number" class="form-control" @bind="simulateCount" min="1" max="500" />
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-primary w-100" @onclick="Simulate" disabled="@busy">Process Stored Readings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="mb-0">Manual Override (Simulation Only)</h5></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Device</label>
+                    <select class="form-select" @bind="command.SensorMacAddress">
+                        <option value="">Select a registered sensor</option>
+                        @foreach (var sensor in sensors)
+                        {
+                            <option value="@sensor.MacAddress">@sensor.MacAddress — @sensor.Location</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Command</label>
+                    <select class="form-select" @bind="command.Command">
+                        <option value="Water Pump">Water Pump</option>
+                        <option value="Smart Relay">Smart Relay</option>
+                        <option value="Valve">Valve</option>
+                        <option value="Request Sensor Check">Request Sensor Check</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Value</label>
+                    <select class="form-select" @bind="command.Value">
+                        <option value="ON">ON</option><option value="OFF">OFF</option>
+                        <option value="OPEN">OPEN</option><option value="CLOSED">CLOSED</option><option value="RUN">RUN</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-success me-2" @onclick="SendCommand" disabled="@busy">Issue Command</button>
+                    <button class="btn btn-outline-secondary" @onclick="Undo" disabled="@busy">Undo Last</button>
+                </div>
+            </div>
+            <small class="text-muted d-block mt-2">Commands are stored in a stack and simulated. They do not operate a physical pump, valve or relay.</small>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="mb-0">Suggested Actions / Automated Insights</h5></div>
+        <div class="card-body">
+            @if (suggestions.Count == 0)
+            {
+                <p class="text-muted mb-0">No suggestions yet. Process readings above to evaluate the latest stored telemetry.</p>
+            }
+            else
+            {
+                <div class="row g-3">
+                    @foreach (var suggestion in suggestions)
+                    {
+                        <div class="col-md-6" @key="suggestion.SensorMacAddress">
+                            <div class="card border-warning h-100"><div class="card-body">
+                                <span class="badge @(suggestion.Priority == "Critical" ? "bg-danger" : "bg-warning text-dark")">@suggestion.Priority</span>
+                                <h6 class="mt-2">@suggestion.Title</h6>
+                                <p>@suggestion.Reason</p>
+                                <small>Device: @suggestion.SensorMacAddress</small><br />
+                                <button class="btn btn-sm btn-outline-primary mt-2" @onclick="() => ApplySuggestion(suggestion)">Prepare Suggested Command</button>
+                            </div></div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="mb-0">Command History</h5></div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead><tr><th>Time</th><th>Device</th><th>Command</th><th>Value</th><th>Status</th></tr></thead>
+                <tbody>
+                @if (status?.RecentCommands?.Count > 0)
+                {
+                    @foreach (var item in status.RecentCommands)
+                    {
+                        <tr><td>@item.CreatedAtUtc.ToLocalTime()</td><td>@item.SensorMacAddress</td><td>@item.Command</td><td>@item.Value</td><td><span class="badge bg-secondary">@item.Status</span></td></tr>
+                    }
+                }
+                else
+                {
+                    <tr><td colspan="5" class="text-muted text-center p-3">No commands have been issued yet.</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<SensorDto> sensors = new();
+    private StreamStatusDto? status;
+    private List<SuggestionDto> suggestions = new();
+    private CommandDto command = new();
+    private string selectedMac = string.Empty;
+    private string categoryFilter = "All";
+    private string alertFilter = "All";
+    private IEnumerable<SensorDto> filteredSensors => sensors.Where(s =>
+        (categoryFilter == "All" || s.Category.Equals(categoryFilter, StringComparison.OrdinalIgnoreCase)) &&
+        (alertFilter == "All" ||
+         (alertFilter == "Alert" && (status?.ActiveAlerts?.Any(a => a.StartsWith(s.MacAddress + ":", StringComparison.OrdinalIgnoreCase)) ?? false)) ||
+         (alertFilter == "Clear" && !(status?.ActiveAlerts?.Any(a => a.StartsWith(s.MacAddress + ":", StringComparison.OrdinalIgnoreCase)) ?? false))));
+    private int simulateCount = 100;
+    private bool busy;
+    private bool isError;
+    private string message = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await Refresh();
+
+    private async Task Refresh()
+    {
+        busy = true;
+        try
+        {
+            sensors = await Http.GetFromJsonAsync<List<SensorDto>>("api/Sensor") ?? new();
+            status = await Http.GetFromJsonAsync<StreamStatusDto>("api/command-stream/status");
+            suggestions = await Http.GetFromJsonAsync<List<SuggestionDto>>("api/command-stream/suggestions") ?? new();
+            if (string.IsNullOrWhiteSpace(selectedMac) && sensors.Count > 0) selectedMac = sensors[0].MacAddress;
+            message = string.Empty;
+        }
+        catch (Exception ex) { SetError($"Could not load command stream: {ex.Message}"); }
+        finally { busy = false; }
+    }
+
+    private async Task Simulate()
+    {
+        if (string.IsNullOrWhiteSpace(selectedMac)) { SetError("Select a registered sensor first."); return; }
+        await RunRequest(async () => await Http.PostAsync($"api/command-stream/simulate/{Uri.EscapeDataString(selectedMac)}?count={Math.Clamp(simulateCount,1,500)}", null), "Telemetry processing completed.");
+    }
+
+    private async Task SendCommand()
+    {
+        if (string.IsNullOrWhiteSpace(command.SensorMacAddress)) { SetError("Select a device before issuing a command."); return; }
+        await RunRequest(async () => await Http.PostAsJsonAsync("api/command-stream/commands", command), "Simulated command recorded.");
+    }
+
+    private async Task Undo() => await RunRequest(async () => await Http.PostAsync("api/command-stream/undo", null), "Undo command recorded.");
+
+    private async Task RunRequest(Func<Task<HttpResponseMessage>> action, string success)
+    {
+        busy = true;
+        try
+        {
+            var response = await action();
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                SetError(string.IsNullOrWhiteSpace(body) ? $"Request failed ({(int)response.StatusCode})." : body);
+            }
+            else { isError = false; message = success; }
+            await LoadStatus();
+        }
+        catch (Exception ex) { SetError(ex.Message); }
+        finally { busy = false; }
+    }
+
+    private async Task LoadStatus()
+    {
+        status = await Http.GetFromJsonAsync<StreamStatusDto>("api/command-stream/status");
+        suggestions = await Http.GetFromJsonAsync<List<SuggestionDto>>("api/command-stream/suggestions") ?? new();
+    }
+
+    private void ApplySuggestion(SuggestionDto suggestion)
+    {
+        command.SensorMacAddress = suggestion.SensorMacAddress;
+        command.Command = suggestion.SuggestedCommand;
+        command.Value = suggestion.SuggestedValue;
+        message = "Suggested command prepared. Review it, then choose Issue Command to record it.";
+        isError = false;
+    }
+
+    private void SetError(string text) { message = text; isError = true; }
+
+    public class SensorDto { public string MacAddress { get; set; } = ""; public string Location { get; set; } = ""; public string Category { get; set; } = ""; }
+    public class CommandDto { public string SensorMacAddress { get; set; } = ""; public string Command { get; set; } = "Water Pump"; public string Value { get; set; } = "ON"; }
+    public class SuggestionDto { public string SensorMacAddress { get; set; } = ""; public string Title { get; set; } = ""; public string Reason { get; set; } = ""; public string SuggestedCommand { get; set; } = ""; public string SuggestedValue { get; set; } = ""; public string Priority { get; set; } = "Normal"; }
+    public class CommandHistoryDto { public string SensorMacAddress { get; set; } = ""; public string Command { get; set; } = ""; public string Value { get; set; } = ""; public DateTime CreatedAtUtc { get; set; } public string Status { get; set; } = ""; }
+    public class StreamStatusDto { public int IncomingQueueCount { get; set; } public int CriticalQueueCount { get; set; } public int RegisteredDeviceCount { get; set; } public List<string> ActiveAlerts { get; set; } = new(); public List<CommandHistoryDto> RecentCommands { get; set; } = new(); }
+}

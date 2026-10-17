@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 
 @using SmartX.Client.Services
 @using BlazorExpress.ChartJS
@@ -7,10 +7,57 @@
 
 @inject SensorApiService SensorApiService
 @inject TelemetryApiService TelemetryApiService
+@inject HttpClient Http
 
 <PageTitle>SmartX</PageTitle>
 
-<h1>SmartX Dashboard</h1>
+<h1>Smart-X IoT Dashboard</h1>
+
+<div class="card mb-4 border-primary">
+    <div class="card-body">
+        <h5>API Service Status</h5>
+        @if (string.IsNullOrWhiteSpace(apiStatus))
+        {
+            <span class="badge bg-secondary">Checking API...</span>
+        }
+        else if (apiStatus == "Healthy")
+        {
+            <span class="badge bg-success">API Online</span>
+            <span class="ms-2 text-muted">Last checked: @apiCheckedAt.ToLocalTime()</span>
+        }
+        else
+        {
+            <span class="badge bg-danger">API Unavailable</span>
+            <p class="mb-0 mt-2">@apiStatus</p>
+        }
+        <button class="btn btn-sm btn-outline-primary mt-2" @onclick="CheckApi">Check API</button>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100"><div class="card-body">
+            <h5>1. Sensor Data Ingestion & Telemetry</h5>
+            <p>Active: register sensors, generate simulated readings and monitor health.</p>
+            <NavLink class="btn btn-primary" href="sensors">Manage Sensors</NavLink>
+            <NavLink class="btn btn-outline-primary ms-2" href="telemetry">View Telemetry</NavLink>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100"><div class="card-body">
+            <h5>2. Real-Time Command Stream & History</h5>
+            <p>Active in Part 2: inspect the processing queues, simulate commands, undo the last command and view suggested actions.</p>
+            <NavLink class="btn btn-primary" href="command-stream">Open Command Stream</NavLink>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100"><div class="card-body">
+            <h5>3. Network Topology & Mesh Routing</h5>
+            <p>Disabled for Part 3. Network map, mesh routes and routing analysis will be added in the final PoE.</p>
+            <button class="btn btn-secondary" disabled>Coming in Part 3</button>
+        </div></div>
+    </div>
+</div>
 
 <p>
     Select a sensor to view its latest telemetry, health status,
@@ -337,6 +384,8 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
 
     private string chartMetric = string.Empty;
 
+    private string apiStatus = string.Empty;
+    private DateTime apiCheckedAt;
     private bool loadingSensors;
 
     private bool loadingTelemetry;
@@ -373,6 +422,7 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
 
     protected override async Task OnInitializedAsync()
     {
+        await CheckApi();
         loadingSensors = true;
 
         errorMessage = string.Empty;
@@ -401,6 +451,25 @@ else if (!loadingTelemetry && hasLoadedTelemetry)
         {
             loadingSensors = false;
         }
+    }
+
+    private async Task CheckApi()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<ApiHealthDto>("api/health");
+            apiStatus = response?.Status ?? "Unknown API response";
+            apiCheckedAt = DateTime.UtcNow;
+        }
+        catch
+        {
+            apiStatus = "Unable to reach API at configured address.";
+        }
+    }
+
+    private sealed class ApiHealthDto
+    {
+        public string Status { get; set; } = string.Empty;
     }
 
     private async Task LoadTelemetry()

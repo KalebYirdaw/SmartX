@@ -26,3 +26,6 @@ Thumbs.db
 azurite-data/
 __azurite*
 AzuriteConfig
+
+# Local development file-storage data
+SmartX.Api/App_Data/sensor-files/
