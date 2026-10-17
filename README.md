@@ -129,10 +129,10 @@ Use **Process Incoming Queue** on the command-stream page to demonstrate critica
 
 1. Start Azurite, API and client.
 2. Open **Sensor Management** and register a sensor, for example `AA:BB:CC:DD:EE:01`, location `Hydroponic Farm A`, category `Temperature`.
-3. Open **Telemetry** and generate mock telemetry for that registered sensor.
-4. Submit or generate telemetry and open **Real-Time Command Stream**. Pending direct-ingestion readings appear in the FIFO and priority queue counts.
-5. Choose **Process Incoming Queue** to show critical readings draining before normal FIFO readings, then review alerts and Suggested Actions.
-6. After a critical reading, issue the related simulated command (for example, **Water Pump → ON** after low moisture). Submit another critical reading and process the queue to see the history-based suggestion.
+3. Open **Real-Time Command Stream**. Select the sensor and use **Send Test Reading** to post exact readings through the API.
+4. Send `Power = 100`, `Moisture = 10`, and `Moisture = 5` without processing between them. The dashboard should show 1 FIFO and 2 critical readings waiting.
+5. Choose **Process Incoming Queue**. The result reports `Moisture=5 (Critical)`, then `Moisture=10 (Critical)`, then `Power=100 (FIFO)`. Review the alert and Suggested Actions.
+6. Issue **Water Pump → ON** after the critical moisture reading. Send and process another critical moisture reading to see the history-based suggestion with its evidence count.
 7. Choose **Undo Last** to demonstrate the command stack.
 8. Open the Home page to show API status and the three architectural pillars.
 

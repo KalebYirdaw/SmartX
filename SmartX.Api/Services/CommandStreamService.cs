@@ -79,13 +79,13 @@ public class CommandStreamService
             while (_criticalQueue.TryDequeue(out var critical, out _))
             {
                 StoreHistory(critical);
-                processed.Add(new ProcessedTelemetry(critical.SensorMacAddress, critical.Metric, "Critical"));
+                processed.Add(new ProcessedTelemetry(critical.SensorMacAddress, critical.Metric, critical.Value, "Critical"));
             }
 
             while (_incomingQueue.TryDequeue(out var normal))
             {
                 StoreHistory(normal);
-                processed.Add(new ProcessedTelemetry(normal.SensorMacAddress, normal.Metric, "FIFO"));
+                processed.Add(new ProcessedTelemetry(normal.SensorMacAddress, normal.Metric, normal.Value, "FIFO"));
             }
 
             return new QueueProcessingResult(
@@ -244,7 +244,7 @@ public class CommandStreamService
     }
 }
 
-public sealed record ProcessedTelemetry(string SensorMacAddress, string Metric, string Queue);
+public sealed record ProcessedTelemetry(string SensorMacAddress, string Metric, double Value, string Queue);
 
 public sealed record QueueProcessingResult(
     int CriticalProcessed,

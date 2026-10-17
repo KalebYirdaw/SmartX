@@ -61,6 +61,21 @@
                     </select>
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label">Test metric</label>
+                    <select class="form-select" @bind="testMetric">
+                        <option value="moisture">Moisture</option>
+                        <option value="power">Power</option>
+                        <option value="temperature">Temperature</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Test value</label>
+                    <input type="number" class="form-control" @bind="testValue" step="any" />
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-success w-100" @onclick="SendTestReading" disabled="@(busy || string.IsNullOrWhiteSpace(selectedMac))">Send Test Reading</button>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label">Readings to process</label>
                     <input type="number" class="form-control" @bind="simulateCount" min="1" max="500" />
                 </div>
@@ -175,6 +190,8 @@
     private string selectedMac = string.Empty;
     private string categoryFilter = "All";
     private string alertFilter = "All";
+    private string testMetric = "moisture";
+    private double testValue = 10;
     private IEnumerable<SensorDto> filteredSensors => sensors.Where(s =>
         (categoryFilter == "All" || s.Category.Equals(categoryFilter, StringComparison.OrdinalIgnoreCase)) &&
         (alertFilter == "All" ||
@@ -210,7 +227,54 @@
 
     private async Task ProcessQueues()
     {
-        await RunRequest(async () => await Http.PostAsync("api/command-stream/process", null), "Queued telemetry processed: critical priority readings first, then normal FIFO readings.");
+        busy = true;
+        try
+        {
+            using var response = await Http.PostAsync("api/command-stream/process", null);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                SetError(string.IsNullOrWhiteSpace(body) ? $"Request failed ({(int)response.StatusCode})." : body);
+                return;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<QueueProcessingDto>();
+            if (result is null)
+            {
+                SetError("The API returned an empty queue-processing result.");
+                return;
+            }
+
+            var order = result.ProcessingOrder.Count == 0
+                ? "No readings were waiting."
+                : string.Join(" → ", result.ProcessingOrder.Select(item => $"{item.Metric}={item.Value} ({item.Queue})"));
+            message = $"Processed {result.CriticalProcessed} critical reading(s) before {result.FifoProcessed} FIFO reading(s). Order: {order}";
+            isError = false;
+            await LoadStatus();
+        }
+        catch (Exception ex)
+        {
+            SetError($"Could not process queued telemetry: {ex.Message}");
+        }
+        finally { busy = false; }
+    }
+
+    private async Task SendTestReading()
+    {
+        if (string.IsNullOrWhiteSpace(selectedMac)) { SetError("Select a registered sensor first."); return; }
+        if (!double.IsFinite(testValue)) { SetError("Enter a finite numeric test value."); return; }
+
+        var reading = new
+        {
+            sensorMacAddress = selectedMac,
+            timestamp = DateTime.UtcNow,
+            metric = testMetric,
+            value = testValue
+        };
+
+        await RunRequest(
+            async () => await Http.PostAsJsonAsync("api/Telemetry", reading),
+            $"Test reading sent to the API and queued: {testMetric} = {testValue}.");
     }
 
     private async Task SendCommand()
@@ -260,5 +324,7 @@
     public class CommandDto { public string SensorMacAddress { get; set; } = ""; public string Command { get; set; } = "Water Pump"; public string Value { get; set; } = "ON"; }
     public class SuggestionDto { public string SensorMacAddress { get; set; } = ""; public string Title { get; set; } = ""; public string Reason { get; set; } = ""; public string SuggestedCommand { get; set; } = ""; public string SuggestedValue { get; set; } = ""; public string Priority { get; set; } = "Normal"; public bool BasedOnHistory { get; set; } public int EvidenceCount { get; set; } }
     public class CommandHistoryDto { public string SensorMacAddress { get; set; } = ""; public string Command { get; set; } = ""; public string Value { get; set; } = ""; public DateTime CreatedAtUtc { get; set; } public string Status { get; set; } = ""; }
+    public class ProcessedTelemetryDto { public string SensorMacAddress { get; set; } = ""; public string Metric { get; set; } = ""; public double Value { get; set; } public string Queue { get; set; } = ""; }
+    public class QueueProcessingDto { public int CriticalProcessed { get; set; } public int FifoProcessed { get; set; } public List<ProcessedTelemetryDto> ProcessingOrder { get; set; } = new(); }
     public class StreamStatusDto { public int IncomingQueueCount { get; set; } public int CriticalQueueCount { get; set; } public int RegisteredDeviceCount { get; set; } public int CommandPatternCount { get; set; } public List<string> ActiveAlerts { get; set; } = new(); public List<CommandHistoryDto> RecentCommands { get; set; } = new(); }
 }
