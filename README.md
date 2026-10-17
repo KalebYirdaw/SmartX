@@ -141,5 +141,4 @@ Use **Process Incoming Queue** on the command-stream page to demonstrate critica
 - Register a sensor before sending telemetry. Unregistered sensor telemetry is rejected.
 - The command interface records simulated commands only; it does not control physical hardware.
 - `Network Topology & Mesh Routing` is intentionally disabled until Part 3.
-- Do not store real secrets or production credentials in source control.
-- For assessment submission, run the solution locally and verify all features before recording the demonstration.
+- co pilot was used to push latest projects to github 
