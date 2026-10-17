@@ -128,6 +128,7 @@ Use **Process Incoming Queue** on the command-stream page to demonstrate critica
 ## Screenshot
 
 <img width="1365" height="767" alt="Screenshot 2026-10-17 140716" src="https://github.com/user-attachments/assets/5ead6942-8c7e-4eb7-ba74-444232fa0cce" />
+Azure account is expired so storage account was disabled hence i used local storage
 
 ## Quick demonstration
 
