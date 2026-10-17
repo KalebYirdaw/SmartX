@@ -1,6 +1,6 @@
 # Smart-X IoT Mesh Ecosystem — Part 2
 
-A beginner-friendly simulated IoT monitoring and command application built with **.NET 10 Web API**, **Blazor WebAssembly**, and **Azure Table Storage**. Local development uses Azurite for tables and a local-folder substitute for Azure Files. No physical sensors are required. Commands are simulations and do not control real equipment.
+A beginner-friendly simulated IoT monitoring and command application built with **.NET 10 Web API**, **Blazor WebAssembly**, and **Azure Table Storage**. Local development uses Azurite for tables and a local-folder substitute for Azure Files as azure subscripion has expired,proof is shown below. No physical sensors are required. Commands are simulations and do not control real equipment.
 
 ## Features
 
