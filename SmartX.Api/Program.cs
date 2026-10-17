@@ -51,6 +51,13 @@ namespace SmartX.Api
 
                 await sensorTableService.InitializeAsync();
 
+                var commandStreamService =
+                    scope.ServiceProvider.GetRequiredService<CommandStreamService>();
+
+                var registeredSensors = await sensorTableService.GetSensorsAsync();
+                foreach (var sensor in registeredSensors)
+                    commandStreamService.RegisterDevice(sensor.MacAddress, sensor.Category);
+
                 var telemetryService =
                     scope.ServiceProvider.GetRequiredService<TelemetryService>();
 

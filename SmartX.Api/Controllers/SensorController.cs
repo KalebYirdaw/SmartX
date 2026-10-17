@@ -9,10 +9,14 @@ namespace SmartX.Api.Controllers
     public class SensorController : ControllerBase
     {
         private readonly SensorTableService _sensorTableService;
+        private readonly CommandStreamService _commandStreamService;
 
-        public SensorController(SensorTableService sensorTableService)
+        public SensorController(
+            SensorTableService sensorTableService,
+            CommandStreamService commandStreamService)
         {
             _sensorTableService = sensorTableService;
+            _commandStreamService = commandStreamService;
         }
 
         // GET: api/Sensor
@@ -93,6 +97,7 @@ namespace SmartX.Api.Controllers
             }
 
             await _sensorTableService.CreateSensorAsync(sensor);
+            _commandStreamService.RegisterDevice(sensor.MacAddress, sensor.Category);
 
             return CreatedAtAction(
                 nameof(GetSensor),
@@ -159,6 +164,9 @@ namespace SmartX.Api.Controllers
             var sensor = await _sensorTableService.GetSensorAsync(
                 macAddress);
 
+            if (sensor is not null)
+                _commandStreamService.RegisterDevice(sensor.MacAddress, sensor.Category);
+
             return Ok(sensor);
         }
 
@@ -185,6 +193,8 @@ namespace SmartX.Api.Controllers
                     message = "Sensor not found."
                 });
             }
+
+            _commandStreamService.UnregisterDevice(macAddress);
 
             return Ok(new
             {

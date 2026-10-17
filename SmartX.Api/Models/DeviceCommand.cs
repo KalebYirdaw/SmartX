@@ -25,4 +25,6 @@ public class SuggestedAction
     public string SuggestedCommand { get; set; } = string.Empty;
     public string SuggestedValue { get; set; } = string.Empty;
     public string Priority { get; set; } = "Normal";
+    public bool BasedOnHistory { get; set; }
+    public int EvidenceCount { get; set; }
 }

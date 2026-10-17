@@ -103,6 +103,7 @@ The client is configured for `http://localhost:5221`. The API address is read fr
 | GET | `/api/Telemetry/anomalies/{sensorMacAddress}` | Get detected anomalies |
 | GET | `/api/SensorHealth/{sensorMacAddress}` | Get sensor health |
 | GET | `/api/command-stream/status` | Queue and processor status |
+| POST | `/api/command-stream/process` | Process pending critical and FIFO telemetry queues |
 | POST | `/api/command-stream/simulate/{macAddress}?count=100` | Process existing readings through Part 2 structures |
 | POST | `/api/command-stream/commands` | Record a simulated device command |
 | POST | `/api/command-stream/undo` | Undo the last recorded command |
@@ -114,25 +115,26 @@ The client is configured for `http://localhost:5221`. The API address is read fr
 
 ## Part 2 data structures
 
-- **Queue:** ordinary telemetry uses FIFO processing.
-- **PriorityQueue:** critical temperature, power or moisture readings are handled before normal readings.
+- **Queue:** ordinary telemetry waits in FIFO order until the operator processes the queue.
+- **PriorityQueue:** critical temperature, power or moisture readings wait separately and are drained before normal FIFO readings; more extreme critical readings are processed first.
 - **Stack:** manual commands can be undone in last-in, first-out order.
-- **Dictionary:** keeps the category/state of devices for fast lookup.
+- **Dictionary:** caches registered device categories for O(1) telemetry-ingestion validation and lookup.
 - **SortedDictionary:** groups telemetry by timestamp for ordered history.
 - **HashSet:** keeps active alert identifiers unique so duplicate alert keys are not added.
-- **Recommendation engine:** evaluates the latest processed reading and suggests an investigation or simulated action for low moisture, high power or out-of-range temperature.
+- **Recommendation engine:** evaluates processed readings and suggests an investigation or simulated action for low moisture, high power or out-of-range temperature. It also learns command/metric associations when an operator issues a command after a critical reading and surfaces the learned command on a later matching critical reading.
 
-These processing structures are in-memory demonstration structures. Azure Tables remain the persistent store for sensor and telemetry records. A restart clears the in-memory Part 2 queues, command history and suggestions.
+Use **Process Incoming Queue** on the command-stream page to demonstrate critical-priority processing before normal FIFO readings. `/api/command-stream/process` returns the processing order and counts. These processing structures and learned command patterns are in-memory demonstration structures. Azure Tables remain the persistent store for sensor and telemetry records. A restart clears the in-memory Part 2 queues, command history and learned patterns.
 
 ## Quick demonstration
 
 1. Start Azurite, API and client.
 2. Open **Sensor Management** and register a sensor, for example `AA:BB:CC:DD:EE:01`, location `Hydroponic Farm A`, category `Temperature`.
 3. Open **Telemetry** and generate mock telemetry for that registered sensor.
-4. Open **Real-Time Command Stream**, select the sensor and choose **Process Stored Readings**.
-5. Review the queue/alert counts and any Suggested Actions.
-6. Issue a simulated command, then select **Undo Last** to demonstrate the command stack.
-7. Open the Home page to show API status and the three architectural pillars.
+4. Submit or generate telemetry and open **Real-Time Command Stream**. Pending direct-ingestion readings appear in the FIFO and priority queue counts.
+5. Choose **Process Incoming Queue** to show critical readings draining before normal FIFO readings, then review alerts and Suggested Actions.
+6. After a critical reading, issue the related simulated command (for example, **Water Pump → ON** after low moisture). Submit another critical reading and process the queue to see the history-based suggestion.
+7. Choose **Undo Last** to demonstrate the command stack.
+8. Open the Home page to show API status and the three architectural pillars.
 
 ## Important notes
 

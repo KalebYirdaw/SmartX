@@ -30,7 +30,7 @@
     <div class="card mb-4">
         <div class="card-header"><h5 class="mb-0">Simulate telemetry processing</h5></div>
         <div class="card-body">
-            <p class="text-muted">Select a registered device and pass its stored readings through the Part 2 queue and alert processor. This does not require physical hardware.</p>
+            <p class="text-muted">Incoming device readings wait in the normal FIFO or critical priority queue until you process them. Stored readings can also be replayed for a demonstration.</p>
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label">Category filter</label>
@@ -66,6 +66,9 @@
                 </div>
                 <div class="col-md-3">
                     <button class="btn btn-primary w-100" @onclick="Simulate" disabled="@busy">Process Stored Readings</button>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-primary w-100" @onclick="ProcessQueues" disabled="@(busy || (status?.IncomingQueueCount ?? 0) + (status?.CriticalQueueCount ?? 0) == 0)">Process Incoming Queue</button>
                 </div>
             </div>
         </div>
@@ -127,6 +130,10 @@
                                 <span class="badge @(suggestion.Priority == "Critical" ? "bg-danger" : "bg-warning text-dark")">@suggestion.Priority</span>
                                 <h6 class="mt-2">@suggestion.Title</h6>
                                 <p>@suggestion.Reason</p>
+                                @if (suggestion.BasedOnHistory)
+                                {
+                                    <span class="badge bg-info text-dark">Learned from @suggestion.EvidenceCount prior operator command(s)</span>
+                                }
                                 <small>Device: @suggestion.SensorMacAddress</small><br />
                                 <button class="btn btn-sm btn-outline-primary mt-2" @onclick="() => ApplySuggestion(suggestion)">Prepare Suggested Command</button>
                             </div></div>
@@ -201,6 +208,11 @@
         await RunRequest(async () => await Http.PostAsync($"api/command-stream/simulate/{Uri.EscapeDataString(selectedMac)}?count={Math.Clamp(simulateCount,1,500)}", null), "Telemetry processing completed.");
     }
 
+    private async Task ProcessQueues()
+    {
+        await RunRequest(async () => await Http.PostAsync("api/command-stream/process", null), "Queued telemetry processed: critical priority readings first, then normal FIFO readings.");
+    }
+
     private async Task SendCommand()
     {
         if (string.IsNullOrWhiteSpace(command.SensorMacAddress)) { SetError("Select a device before issuing a command."); return; }
@@ -246,7 +258,7 @@
 
     public class SensorDto { public string MacAddress { get; set; } = ""; public string Location { get; set; } = ""; public string Category { get; set; } = ""; }
     public class CommandDto { public string SensorMacAddress { get; set; } = ""; public string Command { get; set; } = "Water Pump"; public string Value { get; set; } = "ON"; }
-    public class SuggestionDto { public string SensorMacAddress { get; set; } = ""; public string Title { get; set; } = ""; public string Reason { get; set; } = ""; public string SuggestedCommand { get; set; } = ""; public string SuggestedValue { get; set; } = ""; public string Priority { get; set; } = "Normal"; }
+    public class SuggestionDto { public string SensorMacAddress { get; set; } = ""; public string Title { get; set; } = ""; public string Reason { get; set; } = ""; public string SuggestedCommand { get; set; } = ""; public string SuggestedValue { get; set; } = ""; public string Priority { get; set; } = "Normal"; public bool BasedOnHistory { get; set; } public int EvidenceCount { get; set; } }
     public class CommandHistoryDto { public string SensorMacAddress { get; set; } = ""; public string Command { get; set; } = ""; public string Value { get; set; } = ""; public DateTime CreatedAtUtc { get; set; } public string Status { get; set; } = ""; }
-    public class StreamStatusDto { public int IncomingQueueCount { get; set; } public int CriticalQueueCount { get; set; } public int RegisteredDeviceCount { get; set; } public List<string> ActiveAlerts { get; set; } = new(); public List<CommandHistoryDto> RecentCommands { get; set; } = new(); }
+    public class StreamStatusDto { public int IncomingQueueCount { get; set; } public int CriticalQueueCount { get; set; } public int RegisteredDeviceCount { get; set; } public int CommandPatternCount { get; set; } public List<string> ActiveAlerts { get; set; } = new(); public List<CommandHistoryDto> RecentCommands { get; set; } = new(); }
 }

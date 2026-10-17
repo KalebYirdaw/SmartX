@@ -20,13 +20,10 @@ public class CommandStreamController : ControllerBase
     }
 
     [HttpGet("status")]
-    public async Task<IActionResult> GetStatus()
-    {
-        var sensors = await _sensors.GetSensorsAsync();
-        foreach (var sensor in sensors)
-            _stream.RegisterDevice(sensor.MacAddress, sensor.Category);
-        return Ok(_stream.Snapshot());
-    }
+    public IActionResult GetStatus() => Ok(_stream.Snapshot());
+
+    [HttpPost("process")]
+    public IActionResult ProcessQueues() => Ok(_stream.ProcessQueuedTelemetry());
 
     [HttpPost("commands")]
     public async Task<IActionResult> IssueCommand([FromBody] CommandRequest request)
@@ -73,6 +70,15 @@ public class CommandStreamController : ControllerBase
         var readings = await _telemetry.GetTelemetryAsync(macAddress);
         var latest = readings.OrderByDescending(x => x.Timestamp).Take(count).OrderBy(x => x.Timestamp).ToList();
         foreach (var reading in latest) _stream.EnqueueTelemetry(reading);
-        return Ok(new { message = "Existing telemetry passed through the command-stream processor.", processed = latest.Count, status = _stream.Snapshot() });
+        var result = _stream.ProcessQueuedTelemetry();
+        return Ok(new
+        {
+            message = "Existing telemetry passed through the command-stream processor.",
+            enqueued = latest.Count,
+            criticalProcessed = result.CriticalProcessed,
+            fifoProcessed = result.FifoProcessed,
+            processingOrder = result.ProcessingOrder,
+            status = _stream.Snapshot()
+        });
     }
 }

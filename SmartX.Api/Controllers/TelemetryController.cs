@@ -51,8 +51,7 @@ namespace SmartX.Api.Controllers
                 });
             }
 
-            var registeredSensor = await _sensorTableService.GetSensorAsync(telemetry.SensorMacAddress);
-            if (registeredSensor is null)
+            if (!_commandStreamService.TryGetDeviceCategory(telemetry.SensorMacAddress, out _))
             {
                 return NotFound(new { message = "Telemetry rejected because the sensor is not registered." });
             }
@@ -68,7 +67,6 @@ namespace SmartX.Api.Controllers
             }
 
             await _telemetryService.AddTelemetryAsync(telemetry);
-            _commandStreamService.RegisterDevice(registeredSensor.MacAddress, registeredSensor.Category);
             _commandStreamService.EnqueueTelemetry(telemetry);
 
             return Ok(new
@@ -127,6 +125,7 @@ namespace SmartX.Api.Controllers
             var registeredSensor = await _sensorTableService.GetSensorAsync(sensorMacAddress);
             if (registeredSensor is null)
                 return NotFound(new { message = "Register this sensor before generating telemetry." });
+            _commandStreamService.RegisterDevice(registeredSensor.MacAddress, registeredSensor.Category);
 
             var generatedTelemetry =
                 _mockTelemetryGenerator.Generate(
