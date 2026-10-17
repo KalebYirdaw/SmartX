@@ -136,6 +136,9 @@ Use **Process Incoming Queue** on the command-stream page to demonstrate critica
 7. Choose **Undo Last** to demonstrate the command stack.
 8. Open the Home page to show API status and the three architectural pillars.
 
+## YouTube link
+- https://youtu.be/CkF14H82WP8
+
 ## Important notes
 
 - Register a sensor before sending telemetry. Unregistered sensor telemetry is rejected.
