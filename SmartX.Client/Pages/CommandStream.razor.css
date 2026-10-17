@@ -1,0 +1,293 @@
+.command-stream-page {
+    --stream-ink: #172b4d;
+    --stream-muted: #64748b;
+    --stream-line: #e7edf5;
+    color: var(--stream-ink);
+}
+
+.page-heading {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(1.5rem, 3vw, 2.25rem);
+    border-radius: 1.25rem;
+    background: linear-gradient(120deg, #102b50 0%, #174d75 58%, #168b91 100%);
+    box-shadow: 0 1rem 2.5rem rgba(21, 54, 83, 0.16);
+    color: #fff;
+}
+
+.page-heading::after {
+    position: absolute;
+    top: -5rem;
+    right: 12%;
+    width: 15rem;
+    height: 15rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+    box-shadow: 0 0 0 2rem rgba(255, 255, 255, 0.035), 0 0 0 4rem rgba(255, 255, 255, 0.025);
+    content: "";
+    pointer-events: none;
+}
+
+.page-heading > * {
+    position: relative;
+    z-index: 1;
+}
+
+.page-heading h1 {
+    margin-top: 0.45rem;
+    color: #fff;
+    font-size: clamp(1.65rem, 3vw, 2.2rem);
+    letter-spacing: -0.035em;
+}
+
+.page-heading p {
+    max-width: 42rem;
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.page-eyebrow,
+.section-kicker {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: #80e0cf;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+}
+
+.page-eyebrow span {
+    padding: 0 0.3rem;
+    color: rgba(255, 255, 255, 0.52);
+}
+
+.refresh-button {
+    border-color: rgba(255, 255, 255, 0.48);
+    background: rgba(255, 255, 255, 0.08);
+    font-weight: 650;
+}
+
+.refresh-button:hover {
+    color: #102b50;
+    background: #fff;
+}
+
+.refresh-button span {
+    margin-right: 0.35rem;
+    font-size: 1.1rem;
+}
+
+.stream-message {
+    border: 0;
+    border-radius: 0.85rem;
+    box-shadow: 0 0.35rem 1rem rgba(23, 43, 77, 0.06);
+}
+
+.metrics-grid {
+    --bs-gutter-y: 1rem;
+}
+
+.metric-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--stream-line);
+    border-left: 4px solid var(--metric-color);
+    border-radius: 0.95rem;
+    background: #fff;
+    box-shadow: 0 0.4rem 1.1rem rgba(27, 52, 82, 0.055);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.7rem 1.5rem rgba(27, 52, 82, 0.1);
+}
+
+.metric-normal { --metric-color: #4984d6; }
+.metric-critical { --metric-color: #e25757; }
+.metric-devices { --metric-color: #18a18a; }
+.metric-alerts { --metric-color: #e3a130; }
+
+.metric-card .card-body {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 1.1rem 1.25rem;
+}
+
+.metric-card small {
+    color: var(--stream-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.metric-card h3 {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin: 0;
+    color: var(--metric-color);
+    font-size: 2.1rem;
+    font-weight: 750;
+    line-height: 1;
+}
+
+.metric-card span {
+    margin-top: 0.25rem;
+    color: #94a3b8;
+    font-size: 0.72rem;
+}
+
+.stream-panel {
+    overflow: hidden;
+    border: 1px solid var(--stream-line);
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 0.45rem 1.35rem rgba(27, 52, 82, 0.06);
+}
+
+.stream-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 4.6rem;
+    padding: 0.9rem 1.35rem;
+    border-bottom: 1px solid var(--stream-line);
+    background: #fbfcfe;
+}
+
+.stream-panel-header h5 {
+    color: var(--stream-ink);
+    font-size: 1.04rem;
+    font-weight: 750;
+}
+
+.section-kicker {
+    margin-bottom: 0.15rem;
+    color: #168b91;
+    font-size: 0.62rem;
+}
+
+.section-index {
+    color: #c3cfdd;
+    font-size: 1.1rem;
+    font-weight: 750;
+}
+
+.section-description {
+    max-width: 58rem;
+    margin-bottom: 1.25rem;
+    color: var(--stream-muted);
+    font-size: 0.91rem;
+}
+
+.command-stream-page .form-label {
+    margin-bottom: 0.4rem;
+    color: #40536c;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.command-stream-page .form-select,
+.command-stream-page .form-control {
+    min-height: 2.75rem;
+    border-color: #dce5ef;
+    border-radius: 0.65rem;
+    background-color: #fff;
+    color: var(--stream-ink);
+    font-size: 0.9rem;
+}
+
+.command-stream-page .form-select:focus,
+.command-stream-page .form-control:focus {
+    border-color: #61b8b3;
+    box-shadow: 0 0 0 0.2rem rgba(22, 139, 145, 0.13);
+}
+
+.command-stream-page .btn {
+    min-height: 2.65rem;
+    border-radius: 0.65rem;
+    font-size: 0.88rem;
+    font-weight: 650;
+}
+
+.command-stream-page .btn-primary {
+    border-color: #176b86;
+    background: #176b86;
+}
+
+.command-stream-page .btn-primary:hover {
+    border-color: #10566e;
+    background: #10566e;
+}
+
+.simulation-badge {
+    padding: 0.4rem 0.65rem;
+    border: 1px solid #f5d99c;
+    border-radius: 999px;
+    background: #fff8e8;
+    color: #986718;
+    font-size: 0.63rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+}
+
+.suggestion-card {
+    height: 100%;
+    border: 1px solid #f1d99c;
+    border-left: 4px solid #e3a130;
+    border-radius: 0.8rem;
+    background: linear-gradient(145deg, #fffdf7, #fff);
+}
+
+.suggestion-card h6 {
+    color: var(--stream-ink);
+    font-weight: 750;
+}
+
+.suggestion-card p {
+    color: var(--stream-muted);
+    font-size: 0.88rem;
+}
+
+.stream-panel .table {
+    color: #33465f;
+    font-size: 0.86rem;
+}
+
+.stream-panel .table thead th {
+    padding: 0.85rem 1rem;
+    border-bottom-color: var(--stream-line);
+    background: #f7f9fc;
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.stream-panel .table tbody td {
+    padding: 0.8rem 1rem;
+    border-color: #edf1f6;
+    vertical-align: middle;
+}
+
+@media (max-width: 575.98px) {
+    .page-heading {
+        gap: 1.25rem;
+        border-radius: 0.9rem;
+    }
+
+    .refresh-button {
+        width: 100%;
+    }
+
+    .metric-card .card-body {
+        padding: 0.95rem 1rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .metric-card {
+        transition: none;
+    }
+}

@@ -6,31 +6,37 @@
 
 <PageTitle>Real-Time Command Stream</PageTitle>
 
-<div class="container-fluid py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+<div class="container-fluid py-4 command-stream-page">
+    <div class="page-heading d-flex flex-wrap justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="fw-bold">Real-Time Command Stream & History</h1>
-            <p class="text-muted mb-0">Simulated device overrides, priority alerts and processing history.</p>
+            <span class="page-eyebrow">SMARTX <span aria-hidden="true">/</span> OPERATIONS</span>
+            <h1 class="fw-bold mb-2">Real-Time Command Stream</h1>
+            <p class="mb-0">Monitor incoming readings, review suggested actions and manage simulated device commands.</p>
         </div>
-        <button class="btn btn-outline-primary" @onclick="Refresh" disabled="@busy">Refresh</button>
+        <button class="btn btn-outline-light refresh-button" @onclick="Refresh" disabled="@busy">
+            <span aria-hidden="true">↻</span> Refresh
+        </button>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(message))
     {
-        <div class="alert @(isError ? "alert-danger" : "alert-info")">@message</div>
+        <div class="alert stream-message @(isError ? "alert-danger" : "alert-info")" role="status">@message</div>
     }
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-3"><div class="card h-100"><div class="card-body"><small class="text-muted">Normal FIFO queue</small><h3>@(status?.IncomingQueueCount ?? 0)</h3></div></div></div>
-        <div class="col-md-3"><div class="card h-100"><div class="card-body"><small class="text-muted">Critical priority queue</small><h3>@(status?.CriticalQueueCount ?? 0)</h3></div></div></div>
-        <div class="col-md-3"><div class="card h-100"><div class="card-body"><small class="text-muted">Devices seen by processor</small><h3>@(status?.RegisteredDeviceCount ?? 0)</h3></div></div></div>
-        <div class="col-md-3"><div class="card h-100"><div class="card-body"><small class="text-muted">Unique active alerts</small><h3>@(status?.ActiveAlerts?.Count ?? 0)</h3></div></div></div>
+    <div class="row g-3 mb-4 metrics-grid">
+        <div class="col-md-3"><div class="card h-100 metric-card metric-normal"><div class="card-body"><small>Normal FIFO queue</small><h3>@(status?.IncomingQueueCount ?? 0)</h3><span>Waiting to process</span></div></div></div>
+        <div class="col-md-3"><div class="card h-100 metric-card metric-critical"><div class="card-body"><small>Critical priority</small><h3>@(status?.CriticalQueueCount ?? 0)</h3><span>Processed before FIFO</span></div></div></div>
+        <div class="col-md-3"><div class="card h-100 metric-card metric-devices"><div class="card-body"><small>Registered devices</small><h3>@(status?.RegisteredDeviceCount ?? 0)</h3><span>Available to processor</span></div></div></div>
+        <div class="col-md-3"><div class="card h-100 metric-card metric-alerts"><div class="card-body"><small>Active alerts</small><h3>@(status?.ActiveAlerts?.Count ?? 0)</h3><span>Unique alert states</span></div></div></div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header"><h5 class="mb-0">Simulate telemetry processing</h5></div>
+    <div class="card stream-panel mb-4">
+        <div class="card-header stream-panel-header">
+            <div><span class="section-kicker">INGESTION & PROCESSING</span><h5 class="mb-0">Telemetry queues</h5></div>
+            <span class="section-index">01</span>
+        </div>
         <div class="card-body">
-            <p class="text-muted">Incoming device readings wait in the normal FIFO or critical priority queue until you process them. Stored readings can also be replayed for a demonstration.</p>
+            <p class="section-description">Send a controlled test reading, filter devices, or replay stored data. Critical readings are processed before normal FIFO readings.</p>
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label">Category filter</label>
@@ -89,8 +95,11 @@
         </div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header"><h5 class="mb-0">Manual Override (Simulation Only)</h5></div>
+    <div class="card stream-panel mb-4">
+        <div class="card-header stream-panel-header">
+            <div><span class="section-kicker">DEVICE CONTROL</span><h5 class="mb-0">Manual override</h5></div>
+            <span class="simulation-badge">SIMULATION ONLY</span>
+        </div>
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-4">
@@ -128,8 +137,11 @@
         </div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header"><h5 class="mb-0">Suggested Actions / Automated Insights</h5></div>
+    <div class="card stream-panel mb-4">
+        <div class="card-header stream-panel-header">
+            <div><span class="section-kicker">PREDICTIVE INSIGHTS</span><h5 class="mb-0">Suggested actions</h5></div>
+            <span class="section-index">02</span>
+        </div>
         <div class="card-body">
             @if (suggestions.Count == 0)
             {
@@ -141,7 +153,7 @@
                     @foreach (var suggestion in suggestions)
                     {
                         <div class="col-md-6" @key="suggestion.SensorMacAddress">
-                            <div class="card border-warning h-100"><div class="card-body">
+                            <div class="card suggestion-card h-100"><div class="card-body">
                                 <span class="badge @(suggestion.Priority == "Critical" ? "bg-danger" : "bg-warning text-dark")">@suggestion.Priority</span>
                                 <h6 class="mt-2">@suggestion.Title</h6>
                                 <p>@suggestion.Reason</p>
@@ -159,8 +171,11 @@
         </div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header"><h5 class="mb-0">Command History</h5></div>
+    <div class="card stream-panel mb-4">
+        <div class="card-header stream-panel-header">
+            <div><span class="section-kicker">AUDIT TRAIL</span><h5 class="mb-0">Command history</h5></div>
+            <span class="section-index">03</span>
+        </div>
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead><tr><th>Time</th><th>Device</th><th>Command</th><th>Value</th><th>Status</th></tr></thead>
