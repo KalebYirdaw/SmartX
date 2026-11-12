@@ -27,4 +27,5 @@ public class SuggestedAction
     public string Priority { get; set; } = "Normal";
     public bool BasedOnHistory { get; set; }
     public int EvidenceCount { get; set; }
+    public double Confidence { get; set; }
 }

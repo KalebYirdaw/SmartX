@@ -1,0 +1,690 @@
+@page "/network-topology"
+
+@using SmartX.Client.Services
+
+@inject TelemetryApiService TelemetryApiService
+
+<PageTitle>Network Topology | SmartX</PageTitle>
+
+<div class="topology-page">
+    <div class="topology-heading">
+        <div>
+            <h1>Network Topology</h1>
+            <p>Monitor connected devices, explore network paths and compare mesh routing algorithms.</p>
+        </div>
+
+        <button class="btn btn-primary"
+                @onclick="LoadTopology"
+                disabled="@loading">
+            @(loading ? "Refreshing..." : "Refresh Network")
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (loading && topology is null)
+    {
+        <div class="alert alert-info">Loading network topology...</div>
+    }
+    else if (topology is not null)
+    {
+        <div class="topology-status">
+            <span class="status-indicator @(topology.OnlineNodeCount > 0 ? "online" : "offline")"></span>
+            <strong>Network data loaded</strong>
+            <span class="text-muted">Last refreshed: @lastRefreshed.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss")</span>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card topology-stat-card">
+                    <div class="card-body">
+                        <span class="stat-label">Total Devices</span>
+                        <div class="stat-value">@topology.NodeCount</div>
+                        <span class="stat-description">Registered network devices</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card topology-stat-card">
+                    <div class="card-body">
+                        <span class="stat-label">Online Devices</span>
+                        <div class="stat-value text-success">@topology.OnlineNodeCount</div>
+                        <span class="stat-description">Currently online</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card topology-stat-card">
+                    <div class="card-body">
+                        <span class="stat-label">Offline Devices</span>
+                        <div class="stat-value text-danger">@topology.OfflineNodeCount</div>
+                        <span class="stat-description">Currently offline</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card topology-stat-card">
+                    <div class="card-body">
+                        <span class="stat-label">Connections</span>
+                        <div class="stat-value">@topology.EdgeCount</div>
+                        <span class="stat-description">Registered wireless links</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4 topology-panel">
+            <div class="card-header">
+                <h4 class="mb-0">Network Visualisation</h4>
+            </div>
+            <div class="card-body">
+                <div class="network-legend mb-3">
+                    <span><span class="legend-dot online-dot"></span> Online</span>
+                    <span><span class="legend-dot offline-dot"></span> Offline</span>
+                    <span><span class="legend-line"></span> Active connection</span>
+                    <span><span class="legend-line inactive-line"></span> Inactive connection</span>
+                    <span><span class="legend-line mst-legend-line"></span> Selected spanning-forest connection</span>
+                </div>
+
+                @if (topology.Nodes.Count == 0)
+                {
+                    <div class="empty-network">
+                        <h5>No network devices found</h5>
+                        <p>Register sensors to begin building your network topology.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="network-canvas">
+                        <svg viewBox="0 0 800 440"
+                             role="img"
+                             aria-label="Visual representation of SmartX network devices and connections">
+                            @foreach (var edge in topology.Edges)
+                            {
+                                var source = GetNodePosition(edge.SourceMacAddress);
+                                var target = GetNodePosition(edge.TargetMacAddress);
+
+                                if (source.HasValue && target.HasValue)
+                                {
+                                    <line x1="@source.Value.X"
+                                          y1="@source.Value.Y"
+                                          x2="@target.Value.X"
+                                          y2="@target.Value.Y"
+                                          class="network-edge @(edge.IsActive ? "edge-active" : "edge-inactive") @(IsMstEdgeSelected(edge) ? "mst-selected-edge" : "")" />
+                                }
+                            }
+
+                            @foreach (var node in topology.Nodes)
+                            {
+                                var position = GetNodePosition(node.MacAddress);
+
+                                if (position.HasValue)
+                                {
+                                    <g>
+                                        <circle cx="@position.Value.X"
+                                                cy="@position.Value.Y"
+                                                r="25"
+                                                class="network-node @(node.IsOnline ? "node-online" : "node-offline")" />
+                                        <text x="@position.Value.X"
+                                              y="@(position.Value.Y + 4)"
+                                              class="node-number">
+                                            @(topology.Nodes.IndexOf(node) + 1)
+                                        </text>
+                                        <text x="@position.Value.X"
+                                              y="@(position.Value.Y + 48)"
+                                              class="node-label">
+                                            @ShortenMac(node.MacAddress)
+                                        </text>
+                                    </g>
+                                }
+                            }
+                        </svg>
+                    </div>
+
+                    <div class="network-device-list mt-3">
+                        <h5>Registered Devices</h5>
+                        @foreach (var node in topology.Nodes)
+                        {
+                            <div class="device-row">
+                                <div>
+                                    <strong>@node.Location</strong>
+                                    <div class="small text-muted">@node.MacAddress</div>
+                                    <div class="small text-muted">@node.Category</div>
+                                </div>
+                                <span class="badge @(node.IsOnline ? "bg-success" : "bg-danger")">
+                                    @(node.IsOnline ? "Online" : "Offline")
+                                </span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card mb-4 topology-panel">
+            <div class="card-header">
+                <h4 class="mb-0">Network Algorithm Explorer</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Explore device connectivity with BFS and DFS, or compare minimum spanning forests with Prim and Kruskal.
+                </p>
+
+                <div class="algorithm-buttons mb-4">
+                    <button class="btn @(selectedAlgorithm == "BFS" ? "btn-primary" : "btn-outline-primary")"
+                            @onclick='() => SelectAlgorithm("BFS")'>
+                        Breadth-First Search
+                    </button>
+                    <button class="btn @(selectedAlgorithm == "DFS" ? "btn-primary" : "btn-outline-primary")"
+                            @onclick='() => SelectAlgorithm("DFS")'>
+                        Depth-First Search
+                    </button>
+                    <button class="btn @(selectedAlgorithm == "Prim" ? "btn-primary" : "btn-outline-primary")"
+                            @onclick='() => SelectAlgorithm("Prim")'>
+                        Prim's MST
+                    </button>
+                    <button class="btn @(selectedAlgorithm == "Kruskal" ? "btn-primary" : "btn-outline-primary")"
+                            @onclick='() => SelectAlgorithm("Kruskal")'>
+                        Kruskal's MST
+                    </button>
+                </div>
+
+                @if (selectedAlgorithm is "BFS" or "DFS")
+                {
+                    <div class="mb-3">
+                        <label class="form-label" for="startingDevice">Starting Device</label>
+                        <select id="startingDevice"
+                                class="form-select"
+                                @bind="selectedStartMac"
+                                disabled="@(topology.Nodes.Count == 0)">
+                            @foreach (var node in topology.Nodes)
+                            {
+                                <option value="@node.MacAddress">@node.MacAddress - @node.Location</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <button class="btn btn-primary"
+                        @onclick="RunSelectedAlgorithm"
+                        disabled="@(algorithmLoading || ((selectedAlgorithm is "BFS" or "DFS") && topology.Nodes.Count == 0))">
+                    @(algorithmLoading ? "Running..." : "Run Selected Algorithm")
+                </button>
+
+                @if (algorithmLoading)
+                {
+                    <p class="mt-3 text-muted">Analysing network...</p>
+                }
+
+                @if (traversalResult is not null)
+                {
+                    <div class="algorithm-results mt-4">
+                        <h5>@traversalResult.Algorithm Results</h5>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <div class="result-card">
+                                    <span>Visited Devices</span>
+                                    <strong>@traversalResult.VisitedCount</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="result-card">
+                                    <span>Unreachable Devices</span>
+                                    <strong>@traversalResult.UnreachableCount</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="result-card">
+                                    <span>Connectivity</span>
+                                    <strong>@(traversalResult.IsFullyConnected ? "Connected" : "Disconnected")</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h6>Traversal Order</h6>
+                        @if (traversalResult.TraversalOrder.Count == 0)
+                        {
+                            <p class="text-muted">No devices were visited.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Order</th>
+                                            <th>Device</th>
+                                            <th>Location</th>
+                                            <th>@(selectedAlgorithm == "BFS" ? "Level" : "Depth")</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (var i = 0; i < traversalResult.TraversalOrder.Count; i++)
+                                        {
+                                            var entry = traversalResult.TraversalOrder[i];
+                                            <tr>
+                                                <td>@(i + 1)</td>
+                                                <td>@entry.MacAddress</td>
+                                                <td>@entry.Location</td>
+                                                <td>@entry.TraversalDistance</td>
+                                                <td>
+                                                    <span class="badge @(entry.IsOnline ? "bg-success" : "bg-danger")">
+                                                        @(entry.IsOnline ? "Online" : "Offline")
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+
+                        @if (traversalResult.UnreachableDevices.Count > 0)
+                        {
+                            <h6 class="mt-4">Unreachable Devices</h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>MAC Address</th>
+                                            <th>Location</th>
+                                            <th>Category</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var device in traversalResult.UnreachableDevices)
+                                        {
+                                            <tr>
+                                                <td>@device.MacAddress</td>
+                                                <td>@device.Location</td>
+                                                <td>@device.Category</td>
+                                                <td>
+                                                    <span class="badge @(device.IsOnline ? "bg-success" : "bg-danger")">
+                                                        @(device.IsOnline ? "Online" : "Offline")
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (mstResult is not null)
+                {
+                    <div class="algorithm-results mt-4">
+                        <h5>@mstResult.Algorithm Minimum Spanning Forest</h5>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3">
+                                <div class="result-card">
+                                    <span>Total Weight</span>
+                                    <strong>@mstResult.TotalWeight.ToString("0.###")</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="result-card">
+                                    <span>Selected Links</span>
+                                    <strong>@mstResult.SelectedConnectionCount</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="result-card">
+                                    <span>Components</span>
+                                    <strong>@mstResult.ComponentCount</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="result-card">
+                                    <span>Connectivity</span>
+                                    <strong>@(mstResult.IsFullyConnected ? "Connected" : "Disconnected")</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h6>Selected Connections</h6>
+                        @if (mstResult.SelectedEdges.Count == 0)
+                        {
+                            <p class="text-muted">No active connections were selected for the spanning forest.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Source Device</th>
+                                            <th>Target Device</th>
+                                            <th>Weight</th>
+                                            <th>Signal Strength</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var edge in mstResult.SelectedEdges)
+                                        {
+                                            <tr>
+                                                <td>@edge.SourceMacAddress</td>
+                                                <td>@edge.TargetMacAddress</td>
+                                                <td>@edge.Weight.ToString("0.###")</td>
+                                                <td>@edge.SignalStrength.ToString("0.##")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+
+                        @if (mstResult.OfflineDevices.Count > 0)
+                        {
+                            <h6 class="mt-4">Offline Devices</h6>
+                            @foreach (var device in mstResult.OfflineDevices)
+                            {
+                                <div class="device-row">
+                                    <span>
+                                        <strong>@device.MacAddress</strong>
+                                        <span class="text-muted"> — @device.Location</span>
+                                    </span>
+                                    <span class="badge bg-danger">Offline</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(algorithmError))
+                {
+                    <div class="alert alert-danger mt-3">@algorithmError</div>
+                }
+            </div>
+        </div>
+
+        <div class="card mb-4 topology-panel">
+            <div class="card-header">
+                <h4 class="mb-0">Prim vs Kruskal Comparison</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Compare the minimum spanning forest results returned by both algorithms.
+                </p>
+                <button class="btn btn-outline-primary"
+                        @onclick="CompareMstAlgorithms"
+                        disabled="@comparisonLoading">
+                    @(comparisonLoading ? "Comparing..." : "Compare Prim and Kruskal")
+                </button>
+
+                @if (primResult is not null && kruskalResult is not null)
+                {
+                    <div class="table-responsive mt-4">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Measure</th>
+                                    <th>Prim</th>
+                                    <th>Kruskal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Total Weight</td>
+                                    <td>@primResult.TotalWeight.ToString("0.###")</td>
+                                    <td>@kruskalResult.TotalWeight.ToString("0.###")</td>
+                                </tr>
+                                <tr>
+                                    <td>Selected Connections</td>
+                                    <td>@primResult.SelectedConnectionCount</td>
+                                    <td>@kruskalResult.SelectedConnectionCount</td>
+                                </tr>
+                                <tr>
+                                    <td>Connected Components</td>
+                                    <td>@primResult.ComponentCount</td>
+                                    <td>@kruskalResult.ComponentCount</td>
+                                </tr>
+                                <tr>
+                                    <td>Fully Connected</td>
+                                    <td>@(primResult.IsFullyConnected ? "Yes" : "No")</td>
+                                    <td>@(kruskalResult.IsFullyConnected ? "Yes" : "No")</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="alert alert-info">
+                        @if (Math.Abs(primResult.TotalWeight - kruskalResult.TotalWeight) < 0.000001)
+                        {
+                            <strong>Both algorithms produced the same total weight.</strong>
+                            <span> This is consistent with both algorithms finding a minimum spanning forest for the same graph.</span>
+                        }
+                        else
+                        {
+                            <strong>The total weights differ.</strong>
+                            <span> Review the active graph connections and algorithm results.</span>
+                        }
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(comparisonError))
+                {
+                    <div class="alert alert-danger mt-3">@comparisonError</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private NetworkTopologyDto? topology;
+    private NetworkTraversalDto? traversalResult;
+    private MinimumSpanningTreeDto? mstResult;
+    private MinimumSpanningTreeDto? primResult;
+    private MinimumSpanningTreeDto? kruskalResult;
+
+    private string selectedAlgorithm = "BFS";
+    private string selectedStartMac = string.Empty;
+    private string errorMessage = string.Empty;
+    private string algorithmError = string.Empty;
+    private string comparisonError = string.Empty;
+
+    private bool loading;
+    private bool algorithmLoading;
+    private bool comparisonLoading;
+    private DateTime lastRefreshed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTopology();
+    }
+
+    private async Task LoadTopology()
+    {
+        loading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            topology = await TelemetryApiService.GetNetworkTopologyAsync();
+            if (topology is null)
+            {
+                errorMessage = "The API returned an empty network topology response.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(selectedStartMac) ||
+                !topology.Nodes.Any(node => node.MacAddress == selectedStartMac))
+            {
+                selectedStartMac = topology.Nodes.FirstOrDefault()?.MacAddress ?? string.Empty;
+            }
+
+            lastRefreshed = DateTime.UtcNow;
+            traversalResult = null;
+            mstResult = null;
+            primResult = null;
+            kruskalResult = null;
+            algorithmError = string.Empty;
+            comparisonError = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unable to load network topology: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void SelectAlgorithm(string algorithm)
+    {
+        selectedAlgorithm = algorithm;
+        traversalResult = null;
+        mstResult = null;
+        algorithmError = string.Empty;
+    }
+
+    private async Task RunSelectedAlgorithm()
+    {
+        algorithmLoading = true;
+        algorithmError = string.Empty;
+        traversalResult = null;
+        mstResult = null;
+
+        try
+        {
+            switch (selectedAlgorithm)
+            {
+                case "BFS":
+                    if (string.IsNullOrWhiteSpace(selectedStartMac))
+                    {
+                        algorithmError = "Select a starting device first.";
+                        return;
+                    }
+
+                    traversalResult =
+                        await TelemetryApiService.GetBreadthFirstSearchAsync(selectedStartMac);
+                    break;
+
+                case "DFS":
+                    if (string.IsNullOrWhiteSpace(selectedStartMac))
+                    {
+                        algorithmError = "Select a starting device first.";
+                        return;
+                    }
+
+                    traversalResult =
+                        await TelemetryApiService.GetDepthFirstSearchAsync(selectedStartMac);
+                    break;
+
+                case "Prim":
+                    mstResult = await TelemetryApiService.GetPrimMstAsync();
+                    break;
+
+                case "Kruskal":
+                    mstResult = await TelemetryApiService.GetKruskalMstAsync();
+                    break;
+            }
+
+            if (traversalResult is null && mstResult is null)
+            {
+                algorithmError = "The API returned an empty algorithm response.";
+            }
+        }
+        catch (Exception ex)
+        {
+            algorithmError = $"Unable to run {selectedAlgorithm}: {ex.Message}";
+        }
+        finally
+        {
+            algorithmLoading = false;
+        }
+    }
+
+    private async Task CompareMstAlgorithms()
+    {
+        comparisonLoading = true;
+        comparisonError = string.Empty;
+        primResult = null;
+        kruskalResult = null;
+
+        try
+        {
+            var primTask = TelemetryApiService.GetPrimMstAsync();
+            var kruskalTask = TelemetryApiService.GetKruskalMstAsync();
+            await Task.WhenAll(primTask, kruskalTask);
+
+            primResult = await primTask;
+            kruskalResult = await kruskalTask;
+
+            if (primResult is null || kruskalResult is null)
+            {
+                comparisonError = "One or both algorithms returned an empty response.";
+            }
+        }
+        catch (Exception ex)
+        {
+            comparisonError = $"Unable to compare MST algorithms: {ex.Message}";
+        }
+        finally
+        {
+            comparisonLoading = false;
+        }
+    }
+
+    private bool IsMstEdgeSelected(NetworkGraphEdgeDto edge)
+    {
+        var results = new List<MinimumSpanningTreeDto>();
+        if (mstResult is not null)
+            results.Add(mstResult);
+        if (primResult is not null)
+            results.Add(primResult);
+        if (kruskalResult is not null)
+            results.Add(kruskalResult);
+
+        return results
+            .SelectMany(result => result.SelectedEdges)
+            .Any(selected =>
+                (string.Equals(selected.SourceMacAddress, edge.SourceMacAddress,
+                     StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(selected.TargetMacAddress, edge.TargetMacAddress,
+                     StringComparison.OrdinalIgnoreCase))
+                ||
+                (string.Equals(selected.SourceMacAddress, edge.TargetMacAddress,
+                     StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(selected.TargetMacAddress, edge.SourceMacAddress,
+                     StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private (double X, double Y)? GetNodePosition(string macAddress)
+    {
+        if (topology is null)
+            return null;
+
+        var index = topology.Nodes.FindIndex(node =>
+            string.Equals(node.MacAddress, macAddress, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+            return null;
+
+        const double centerX = 400;
+        const double centerY = 205;
+        const double radius = 155;
+
+        if (topology.Nodes.Count == 1)
+            return (centerX, centerY);
+
+        var angle = (2 * Math.PI * index / topology.Nodes.Count) - (Math.PI / 2);
+        return (
+            centerX + radius * Math.Cos(angle),
+            centerY + radius * Math.Sin(angle));
+    }
+
+    private static string ShortenMac(string macAddress)
+    {
+        if (string.IsNullOrWhiteSpace(macAddress))
+            return "Unknown";
+
+        return macAddress.Length > 11 ? macAddress[^8..] : macAddress;
+    }
+}

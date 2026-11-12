@@ -1,3 +1,4 @@
+@implements IAsyncDisposable
 @page "/command-stream"
 @using System.Net.Http.Json
 @using System.ComponentModel.DataAnnotations
@@ -159,7 +160,7 @@
                                 <p>@suggestion.Reason</p>
                                 @if (suggestion.BasedOnHistory)
                                 {
-                                    <span class="badge bg-info text-dark">Learned from @suggestion.EvidenceCount prior operator command(s)</span>
+                                    <span class="badge bg-info text-dark">Learned from @suggestion.EvidenceCount examples · @((suggestion.Confidence * 100).ToString("F0"))% confidence</span>
                                 }
                                 <small>Device: @suggestion.SensorMacAddress</small><br />
                                 <button class="btn btn-sm btn-outline-primary mt-2" @onclick="() => ApplySuggestion(suggestion)">Prepare Suggested Command</button>
@@ -217,7 +218,48 @@
     private bool isError;
     private string message = string.Empty;
 
-    protected override async Task OnInitializedAsync() => await Refresh();
+    private CancellationTokenSource? refreshCts;
+    private Task? refreshTask;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Refresh();
+        refreshCts = new CancellationTokenSource();
+        refreshTask = AutoRefreshAsync(refreshCts.Token);
+    }
+
+    private async Task AutoRefreshAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(async () =>
+                {
+                    try { await LoadStatus(); }
+                    catch (Exception ex) { SetError($"Automatic refresh failed: {ex.Message}"); }
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Component is leaving the page.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (refreshCts is null) return;
+        await refreshCts.CancelAsync();
+        if (refreshTask is not null)
+        {
+            try { await refreshTask; }
+            catch (OperationCanceledException) { }
+        }
+        refreshCts.Dispose();
+    }
 
     private async Task Refresh()
     {
@@ -337,7 +379,7 @@
 
     public class SensorDto { public string MacAddress { get; set; } = ""; public string Location { get; set; } = ""; public string Category { get; set; } = ""; }
     public class CommandDto { public string SensorMacAddress { get; set; } = ""; public string Command { get; set; } = "Water Pump"; public string Value { get; set; } = "ON"; }
-    public class SuggestionDto { public string SensorMacAddress { get; set; } = ""; public string Title { get; set; } = ""; public string Reason { get; set; } = ""; public string SuggestedCommand { get; set; } = ""; public string SuggestedValue { get; set; } = ""; public string Priority { get; set; } = "Normal"; public bool BasedOnHistory { get; set; } public int EvidenceCount { get; set; } }
+    public class SuggestionDto { public string SensorMacAddress { get; set; } = ""; public string Title { get; set; } = ""; public string Reason { get; set; } = ""; public string SuggestedCommand { get; set; } = ""; public string SuggestedValue { get; set; } = ""; public string Priority { get; set; } = "Normal"; public bool BasedOnHistory { get; set; } public int EvidenceCount { get; set; } public double Confidence { get; set; } }
     public class CommandHistoryDto { public string SensorMacAddress { get; set; } = ""; public string Command { get; set; } = ""; public string Value { get; set; } = ""; public DateTime CreatedAtUtc { get; set; } public string Status { get; set; } = ""; }
     public class ProcessedTelemetryDto { public string SensorMacAddress { get; set; } = ""; public string Metric { get; set; } = ""; public double Value { get; set; } public string Queue { get; set; } = ""; }
     public class QueueProcessingDto { public int CriticalProcessed { get; set; } public int FifoProcessed { get; set; } public List<ProcessedTelemetryDto> ProcessingOrder { get; set; } = new(); }

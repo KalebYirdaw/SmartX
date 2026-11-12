@@ -9,3 +9,13 @@ GET {{SmartX.Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+GET {{SmartX.Api_HostAddress}}/api/network-topology/mst/prim
+Accept: application/json
+
+###
+
+GET {{SmartX.Api_HostAddress}}/api/network-topology/mst/kruskal
+Accept: application/json
+
+###

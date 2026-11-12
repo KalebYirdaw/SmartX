@@ -60,7 +60,7 @@ namespace SmartX.Api.Services
             // filter directly in Azure Table Storage.
             var filter =
                 TableClient.CreateQueryFilter(
-                    $"Category eq {category}");
+                    $"Category eq '{category.Replace("'", "''")}'");
 
             await foreach (
                 var entity in

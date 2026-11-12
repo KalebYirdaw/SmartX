@@ -25,6 +25,8 @@ namespace SmartX.Api
             builder.Services.AddSingleton<SensorTableService>();
             builder.Services.AddSingleton<TelemetryService>();
             builder.Services.AddSingleton<CommandStreamService>();
+            builder.Services.AddSingleton<NetworkTopologyService>();
+            builder.Services.AddHostedService<TelemetryQueueWorker>();
 
             // Telemetry processing
             builder.Services.AddSingleton<TelemetryBatchProcessor>();

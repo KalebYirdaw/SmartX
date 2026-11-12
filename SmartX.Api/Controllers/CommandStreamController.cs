@@ -23,7 +23,12 @@ public class CommandStreamController : ControllerBase
     public IActionResult GetStatus() => Ok(_stream.Snapshot());
 
     [HttpPost("process")]
-    public IActionResult ProcessQueues() => Ok(_stream.ProcessQueuedTelemetry());
+    public IActionResult ProcessQueues([FromQuery] int maxItems = 100)
+    {
+        if (maxItems < 1 || maxItems > 1_000)
+            return BadRequest(new { message = "maxItems must be between 1 and 1,000." });
+        return Ok(_stream.ProcessQueuedTelemetry(maxItems));
+    }
 
     [HttpPost("commands")]
     public async Task<IActionResult> IssueCommand([FromBody] CommandRequest request)
@@ -56,6 +61,21 @@ public class CommandStreamController : ControllerBase
 
     [HttpGet("history")]
     public IActionResult History([FromQuery] int count = 100) => Ok(_stream.GetHistory(count));
+
+    [HttpGet("history/range")]
+    public IActionResult HistoryRange(
+        [FromQuery] string sensorMacAddress,
+        [FromQuery] string metric,
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc)
+    {
+        if (string.IsNullOrWhiteSpace(sensorMacAddress) || string.IsNullOrWhiteSpace(metric))
+            return BadRequest(new { message = "sensorMacAddress and metric are required." });
+        if (fromUtc > toUtc)
+            return BadRequest(new { message = "fromUtc must be earlier than or equal to toUtc." });
+
+        return Ok(_stream.GetHistoryRange(sensorMacAddress, metric, fromUtc, toUtc));
+    }
 
     [HttpGet("suggestions")]
     public IActionResult Suggestions() => Ok(_stream.GetSuggestions());

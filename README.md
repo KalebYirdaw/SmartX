@@ -7,13 +7,14 @@ A beginner-friendly simulated IoT monitoring and command application built with 
 - Register and manage sensors (MAC address, location and category).
 - Generate and inspect mock temperature, power and valve telemetry.
 - View sensor health, historical readings and detected anomalies.
-- Process readings through a normal FIFO queue and a critical priority queue.
+- Process readings automatically in bounded batches through a normal FIFO queue and a normalised-severity critical priority queue.
 - Use a `Dictionary` for fast device lookup, a `SortedDictionary` for timestamp history, a `HashSet` for unique active alerts, and a `Stack` for command Undo.
 - Issue simulated pump, valve and relay commands.
 - Filter devices by category or active alert state.
-- Show automated suggested actions based on critical readings.
+- Show automated suggested actions based on critical readings, with context-specific learning, minimum evidence and confidence.
 - API health endpoint and configuration-based client API URL.
-- Landing page shows API status and all three assignment pillars. Network Topology is disabled for Part 3.
+- Landing page shows API status and all three assignment pillars; network reachability analysis is available through the topology API.
+- Analyze network reachability over active wireless connections, traversing only through online devices and reporting unreachable devices with their online status.
 
 ## Projects
 
@@ -102,28 +103,71 @@ The client is configured for `http://localhost:5221`. The API address is read fr
 | POST | `/api/Telemetry/seed/{sensorMacAddress}?count=100` | Generate mock readings |
 | GET | `/api/Telemetry/anomalies/{sensorMacAddress}` | Get detected anomalies |
 | GET | `/api/SensorHealth/{sensorMacAddress}` | Get sensor health |
+| GET | `/api/network-topology` | Get the current network topology |
+| GET | `/api/network-topology/nodes` | List registered network devices |
+| GET | `/api/network-topology/edges` | List wireless connections |
+| GET | `/api/network-topology/nodes/{macAddress}/neighbours` | List a device's connections |
+| GET | `/api/network-topology/bfs/{macAddress}` | Traverse active online connections breadth-first and report unreachable devices |
+| GET | `/api/network-topology/dfs/{macAddress}` | Traverse active online connections depth-first and report unreachable devices |
+| GET | `/api/network-topology/mst/prim` | Calculate minimum spanning forest using Prim's algorithm |
+| GET | `/api/network-topology/mst/kruskal` | Calculate minimum spanning forest using Kruskal's algorithm |
+| POST | `/api/network-topology/edges` | Add a wireless connection |
+| DELETE | `/api/network-topology/edges/{sourceMac}/{targetMac}` | Remove a wireless connection |
+| PUT | `/api/network-topology/nodes/{macAddress}/status` | Update a device's online status |
 | GET | `/api/command-stream/status` | Queue and processor status |
 | POST | `/api/command-stream/process` | Process pending critical and FIFO telemetry queues |
 | POST | `/api/command-stream/simulate/{macAddress}?count=100` | Process existing readings through Part 2 structures |
 | POST | `/api/command-stream/commands` | Record a simulated device command |
 | POST | `/api/command-stream/undo` | Undo the last recorded command |
 | GET | `/api/command-stream/history?count=100` | Get processed telemetry history |
+| GET | `/api/command-stream/history/range?sensorMacAddress=AA:BB:CC:DD:EE:01&metric=moisture&fromUtc=2026-11-12T10:00:00Z&toUtc=2026-11-12T12:00:00Z` | Query one sensor and metric in an inclusive UTC time range |
 | GET | `/api/command-stream/suggestions` | Get automated suggested actions |
 | POST | `/api/documents/upload` | Upload a document (if configured) |
 | GET | `/api/documents` | List documents (if configured) |
 | GET | `/api/documents/download/{fileName}` | Download a document (if configured) |
 
+### Minimum Spanning Forest Algorithms
+
+Smart-X supports two minimum spanning forest algorithms:
+
+- **Prim's Algorithm:** Builds a minimum spanning forest by selecting the lowest-weight active connection from the current network component.
+- **Kruskal's Algorithm:** Sorts active connections by weight and uses Disjoint Set Union to prevent cycles.
+
+Both algorithms:
+
+- Consider online devices only and include isolated online devices in the component count.
+- Ignore offline devices and inactive wireless connections.
+- Avoid cycles while supporting disconnected network components.
+- Return selected connections, total connection weight, component count, and connectivity status.
+
+#### API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/network-topology/mst/prim` | Calculate minimum spanning forest using Prim's algorithm |
+| GET | `/api/network-topology/mst/kruskal` | Calculate minimum spanning forest using Kruskal's algorithm |
+
+## Part 2 processing improvements
+
+- A hosted background worker checks the incoming queues every second and processes up to 100 readings per tick; the API manual process endpoint accepts a bounded batch size (`maxItems=1..1000`).
+- Critical severity is dimensionless: it is calculated as the proportional distance beyond the threshold for that metric. Moisture percentages, power wattage and temperature are therefore not directly compared as raw numbers.
+- The timestamp-sorted in-memory history is capped at 50,000 readings, removing the oldest timestamps first.
+- The range endpoint filters by sensor MAC address, metric and inclusive UTC start/end timestamps.
+- The command-stream page refreshes its status and suggestions every three seconds and cancels its refresh loop when the component is disposed.
+- Learned suggestions are scoped by registered device category and metric family. A suggestion requires at least three matching operator examples and at least 60% confidence; the confidence is displayed as a percentage.
+- Automatic queue processing is incremental. It does not wait for the user to press the manual processing button, and a large backlog is spread across multiple worker ticks.
+
 ## Part 2 data structures
 
 - **Queue:** ordinary telemetry waits in FIFO order until the operator processes the queue.
-- **PriorityQueue:** critical temperature, power or moisture readings wait separately and are drained before normal FIFO readings; more extreme critical readings are processed first.
+- **PriorityQueue:** critical temperature, power or moisture readings wait separately and are drained before normal FIFO readings; the highest normalised deviation is processed first.
 - **Stack:** manual commands can be undone in last-in, first-out order.
 - **Dictionary:** caches registered device categories for O(1) telemetry-ingestion validation and lookup.
 - **SortedDictionary:** groups telemetry by timestamp for ordered history.
 - **HashSet:** keeps active alert identifiers unique so duplicate alert keys are not added.
-- **Recommendation engine:** evaluates processed readings and suggests an investigation or simulated action for low moisture, high power or out-of-range temperature. It also learns command/metric associations when an operator issues a command after a critical reading and surfaces the learned command on a later matching critical reading.
+- **Recommendation engine:** evaluates processed readings and suggests an investigation or simulated action for low moisture, high power or out-of-range temperature. It learns only within the same registered device category and metric family, and only surfaces learned suggestions after at least three examples and a confidence score of 60% or higher.
 
-Use **Process Incoming Queue** on the command-stream page to demonstrate critical-priority processing before normal FIFO readings. `/api/command-stream/process` returns the processing order and counts. These processing structures and learned command patterns are in-memory demonstration structures. Azure Tables remain the persistent store for sensor and telemetry records. A restart clears the in-memory Part 2 queues, command history and learned patterns.
+The background worker normally processes queued readings automatically in batches of up to 100. Use **Process Incoming Queue** on the command-stream page to manually process a bounded batch and demonstrate critical-priority processing before normal FIFO readings. `/api/command-stream/process` returns the processing order and counts. These processing structures and learned command patterns are in-memory demonstration structures. Azure Tables remain the persistent store for sensor and telemetry records. A restart clears the in-memory Part 2 queues, command history and learned patterns.
 
 ## Screenshot
 

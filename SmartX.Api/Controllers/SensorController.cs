@@ -10,13 +10,16 @@ namespace SmartX.Api.Controllers
     {
         private readonly SensorTableService _sensorTableService;
         private readonly CommandStreamService _commandStreamService;
+        private readonly NetworkTopologyService _networkTopologyService;
 
         public SensorController(
             SensorTableService sensorTableService,
-            CommandStreamService commandStreamService)
+            CommandStreamService commandStreamService,
+            NetworkTopologyService networkTopologyService)
         {
             _sensorTableService = sensorTableService;
             _commandStreamService = commandStreamService;
+            _networkTopologyService = networkTopologyService;
         }
 
         // GET: api/Sensor
@@ -97,7 +100,12 @@ namespace SmartX.Api.Controllers
             }
 
             await _sensorTableService.CreateSensorAsync(sensor);
-            _commandStreamService.RegisterDevice(sensor.MacAddress, sensor.Category);
+
+            _commandStreamService.RegisterDevice(
+                sensor.MacAddress,
+                sensor.Category);
+
+            _networkTopologyService.RegisterSensor(sensor);
 
             return CreatedAtAction(
                 nameof(GetSensor),
@@ -165,7 +173,13 @@ namespace SmartX.Api.Controllers
                 macAddress);
 
             if (sensor is not null)
-                _commandStreamService.RegisterDevice(sensor.MacAddress, sensor.Category);
+            {
+                _commandStreamService.RegisterDevice(
+                    sensor.MacAddress,
+                    sensor.Category);
+
+                _networkTopologyService.RegisterSensor(sensor);
+            }
 
             return Ok(sensor);
         }
@@ -195,6 +209,8 @@ namespace SmartX.Api.Controllers
             }
 
             _commandStreamService.UnregisterDevice(macAddress);
+
+            _networkTopologyService.RemoveSensor(macAddress);
 
             return Ok(new
             {

@@ -1,0 +1,270 @@
+.topology-page {
+    padding-bottom: 2rem;
+}
+
+.topology-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.topology-heading h1 {
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.topology-heading p {
+    color: #6c757d;
+    margin-bottom: 0;
+}
+
+.topology-status {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.9rem;
+}
+
+.status-indicator,
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-indicator.online,
+.online-dot {
+    background: #198754;
+}
+
+.status-indicator.offline,
+.offline-dot {
+    background: #dc3545;
+}
+
+.topology-stat-card {
+    height: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.stat-label {
+    display: block;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.stat-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0.25rem 0;
+}
+
+.stat-description {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+.topology-panel {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.topology-panel .card-header {
+    background: #f8f9fa;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.topology-panel .card-header h4 {
+    font-size: 1.1rem;
+    font-weight: 650;
+}
+
+.network-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+.network-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.legend-line {
+    width: 22px;
+    height: 3px;
+    display: inline-block;
+    background: #198754;
+}
+
+.inactive-line {
+    background: #adb5bd;
+    border-top: 1px dashed #6c757d;
+}
+
+.mst-legend-line {
+    background: #0d6efd;
+}
+
+.network-canvas {
+    width: 100%;
+    min-height: 280px;
+    overflow: hidden;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+}
+
+.network-canvas svg {
+    width: 100%;
+    height: auto;
+    min-height: 280px;
+    display: block;
+}
+
+.network-edge {
+    stroke-width: 3;
+}
+
+.edge-active {
+    stroke: #198754;
+}
+
+.edge-inactive {
+    stroke: #adb5bd;
+    stroke-dasharray: 7 5;
+}
+
+.mst-selected-edge {
+    stroke: #0d6efd;
+    stroke-width: 6;
+}
+
+.network-node {
+    stroke-width: 3;
+}
+
+.node-online {
+    fill: #d1e7dd;
+    stroke: #198754;
+}
+
+.node-offline {
+    fill: #f8d7da;
+    stroke: #dc3545;
+}
+
+.node-number {
+    fill: #212529;
+    font-size: 14px;
+    font-weight: 700;
+    text-anchor: middle;
+}
+
+.node-label {
+    fill: #343a40;
+    font-size: 11px;
+    text-anchor: middle;
+}
+
+.empty-network {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #6c757d;
+}
+
+.network-device-list {
+    border-top: 1px solid #e9ecef;
+    padding-top: 1rem;
+}
+
+.network-device-list h5 {
+    font-size: 1rem;
+    font-weight: 650;
+    margin-bottom: 0.75rem;
+}
+
+.device-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.device-row:last-child {
+    border-bottom: none;
+}
+
+.algorithm-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.algorithm-results {
+    border-top: 1px solid #e9ecef;
+    padding-top: 1.25rem;
+}
+
+.algorithm-results h5 {
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.result-card {
+    height: 100%;
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 9px;
+    background: #f8fafc;
+}
+
+.result-card span {
+    display: block;
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.result-card strong {
+    display: block;
+    font-size: 1.35rem;
+    margin-top: 0.25rem;
+}
+
+@media (max-width: 640px) {
+    .topology-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .topology-heading button {
+        width: 100%;
+    }
+
+    .network-canvas svg {
+        min-height: 220px;
+    }
+
+    .algorithm-buttons button {
+        width: 100%;
+    }
+
+    .device-row {
+        align-items: flex-start;
+    }
+}
