@@ -639,15 +639,17 @@ An LLM-based service could summarise telemetry anomalies and generate human-read
 It should operate as an additional analysis layer rather than replacing deterministic validation, threshold rules or safety-critical controls.
 
 ---
-## 16.Screenshot
+## 15.Screenshot
 
 <img width="1365" height="767" alt="Screenshot 2026-10-17 140716" src="https://github.com/user-attachments/assets/5ead6942-8c7e-4eb7-ba74-444232fa0cce" />
 Azure account is expired so storage account was disabled hence I used local storage. 
 ## Note
 - co pilot was used to push latest projects to github
 
+## 16.Youtube link https://youtu.be/nCSyYTDcfjI
+
   
-## 15. Conclusion
+## 17. Conclusion
 
 Smart-X brings together sensor ingestion, telemetry processing, historical analysis and network topology management in a unified IoT application.
 
